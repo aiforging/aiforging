@@ -505,7 +505,15 @@ Update the target's `CLAUDE.md` with a pointer.
 
 ### Step B.9 — Propose a refactor plan (centrally, in the workspace)
 
-If the architecture analyzer produced findings, offer to create a feature folder for the alignment work:
+If the architecture analyzer produced findings, offer to create a feature folder for the alignment work. This step is an **auto-invoked specialization** of the `/aiforging:new-feature` command — both commands follow the same shape rules and Step-1 Summary format documented in `${CLAUDE_PLUGIN_ROOT}/conventions/features/README.md`. Do not improvise new rules here. If this step and `/aiforging:new-feature` ever disagree, the convention doc is the source of truth and both commands must align to it.
+
+The differences between this step and the user-invoked `/aiforging:new-feature` are:
+
+- The initial prompt is pre-supplied — it's the architecture-alignment work proposed by the analyzer for `<target>`, not a free-form user prompt.
+- This step DOES write a `plan.md` draft (not just a spec.md skeleton), because the analyzer findings are already structured enough to feed the slice format directly. This is the one case where a plan.md can exist before the user has run the full interactive Step 2–3 interview.
+- This step is auto-invoked by onboarding; the user never has to type the command name.
+
+Offer the feature creation:
 
 > Based on the analysis of `<target>`, I can draft a proposed refactor plan as a new feature in this workspace. The feature would live at `docs/features/<suggested-name>/` and would contain a spec.md (what the plan addresses) and a plan.md (the sliced refactor path in the AI Forging slice format). This is where all cross-cutting plans live — centralized in the workspace, not fragmented per repo.
 >
@@ -515,12 +523,19 @@ Default: Y. Suggested name: `<target-repo-basename>-architecture-alignment` in k
 
 If yes:
 
-1. Create `./docs/features/<suggested-name>/`.
-2. Write `spec.md` summarizing the analyzer's findings (WHAT is misaligned and WHY fixing it matters).
-3. Write `plan.md` in the AI Forging slice format (see `docs/features/README.md`), breaking the alignment work into `[hammer]` slices. Each slice must name the target repo, the affected file, the pattern/anti-pattern reference, and the test suite that must stay green. Mark any slice touching a public API, schema, or cross-repo contract as `[gate: ...]`.
-4. Stop. Do NOT execute the plan. The next step is for the user to review, then optionally run `aiforging:hammer-refactor` on the target repo.
+1. **Read the convention.** Load `${CLAUDE_PLUGIN_ROOT}/conventions/features/README.md` so the feature-folder shape rules and the Summary-section format are in your context. Do not paraphrase the convention to the user.
+2. **Feature detection.** Check `./docs/features/` for an existing folder that collides with `<suggested-name>` (exact match, substring, or >=50% token overlap). If one exists, append `-2`, `-3`, … to disambiguate until the name is unique. Feature folders are stable-once-created — never rename an existing one.
+3. **Pick the shape.** Architecture-alignment features from the analyzer are typically flat (one spec, one plan) because the analyzer produces one unified set of findings for one target repo. Use the flat shape unless the analyzer findings span obviously-independent work items (e.g., a backend-layer refactor group AND a frontend-layer refactor group in a fullstack repo) — in that case, use the nested shape with one numbered work item per group.
+4. **Create the folder.**
+   ```bash
+   mkdir -p ./docs/features/<suggested-name>
+   ```
+5. **Write spec.md** following the Step-1 Summary format from `conventions/features/README.md`. The Summary section should be pre-filled with: "Architecture alignment work proposed by `architecture-analyzer` for `<target>` on `<today's date>`. Findings summary: `<one-paragraph condensation of the analyzer output>`." The rest of the spec (Problem, Who is affected, In scope / out of scope, Affected code, Architectural decisions) should be filled in from the analyzer's findings — this is safe because the analyzer already did the analysis work. Mark the spec as "proposed" in a header comment so reviewers know it came from an automated analysis rather than a human interview.
+6. **Write plan.md** in the AI Forging slice format (see `conventions/features/README.md`), breaking the alignment work into `[hammer]` slices. Each slice must name the target repo, the affected file, the pattern/anti-pattern reference, and the test suite that must stay green. Mark any slice touching a public API, schema, or cross-repo contract as `[gate: architecture]` (or a more specific gate: `[gate: schema]`, `[gate: contract]`). Remember: every group of related refactor slices counts as a Fire sequence for convention purposes, so each group ends with its own closing `[hammer]` slice dispatching hammer-refactor against the files the group touched. (For pure-refactor features the "Fire sequence" is often just the analyzer findings for one subsystem; close each subsystem's slices with a hammer-refactor dispatch.)
+7. **Stop.** Do NOT execute the plan. Do NOT commit to git — Step B.10 handles git integration for the whole onboarding. The user reviews the spec and plan, and optionally runs `aiforging:hammer-refactor` on the target repo when ready.
+8. **Remind the user about the Summary checkpoint.** Even though the spec was drafted from analyzer output rather than an interactive interview, the Summary section is still a checkpoint — ask the user to confirm that the drafted Summary captures the alignment work they actually want, before they approve the plan. If the user wants to rewrite the Summary or scope it down, accept that edit and regenerate the plan section accordingly.
 
-If no, skip this step.
+If no, skip this step. Do not create an empty feature folder "just in case."
 
 ### Step B.10 — Git integration
 
