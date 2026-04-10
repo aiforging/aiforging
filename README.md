@@ -181,10 +181,9 @@ Contributions welcome once the extension-point contracts stabilize — for now, 
 
 ## Author
 
-Chris Holland — VP of Software Development at CertainPath, the guy who coined the term as a counterpoint to vibe coding.
+[Chris Holland](https://linkedin.com/in/chrisholland) — the guy who [coined](https://www.linkedin.com/feed/update/urn:li:activity:7445936135371083776/?originTrackingId=j81PqnmwyBMk4rNkIUCzbQ%3D%3D) the term as a counterpoint to vibe coding.
 
 - Website: [aiforging.dev](https://aiforging.dev)
-- LinkedIn: [linkedin.com/in/chrisholland](https://linkedin.com/in/chrisholland)
 
 ## License
 
