@@ -1,0 +1,91 @@
+# AI Forging — Project Conventions
+
+> This project has been onboarded to the **AI Forging** framework. The full conventions library lives under `.aiforging/`. This file is a pointer for Claude (and for humans opening the repo) to the conventions that apply here.
+
+## Prerequisites (important — read before working in this repo)
+
+This project has been onboarded by `/aiforging:setup`, which wrote an `enabledPlugins` block into this repo's `.claude/settings.json`:
+
+```json
+{
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "aiforging@claude-plugins-official": true
+  }
+}
+```
+
+That means **Claude Code will auto-activate `superpowers` and `aiforging` whenever it runs in this repo** — as long as those plugins are installed at the machine level. Plugins are installed once per user via `/plugin install` and then enabled per-scope via the settings file above, so anyone who clones this repo gets the same skill stack active for free, without having to edit their personal config.
+
+AI Forging does NOT redistribute these plugins; they are peer dependencies. If Claude Code logs a warning that one of them isn't installed, install it at the machine level and re-open Claude:
+
+1. **`superpowers`** (by Jesse Vincent — [github.com/obra/superpowers](https://github.com/obra/superpowers), accepted into the official Anthropic marketplace Jan 2026). Provides:
+   - `superpowers:test-driven-development` — used for every Fire-stage test-first cycle in this repo.
+   - `superpowers:brainstorming` — used for feature spec work.
+   - `superpowers:writing-plans` — used for plan authoring.
+   - `superpowers:executing-plans` — used for walking plans during implementation.
+   - `superpowers:subagent-driven-development` — used by `hammer-refactor` to dispatch one subagent per refactor slice.
+
+   Preferred install (matches the identifier written into `.claude/settings.json`): `/plugin install superpowers@claude-plugins-official`. Alternative: `/plugin marketplace add obra/superpowers` then `/plugin install superpowers@superpowers-dev` — but if you take that route you'll need to update `enabledPlugins` in `.claude/settings.json` to use `superpowers@superpowers-dev` instead.
+
+2. **`aiforging`** — required for `/aiforging:setup`, `architecture-analyzer`, and future `/aiforging:update-targets`. Not strictly required to run the `hammer-refactor` skill on its own: a copy of that skill is committed at `.claude/skills/hammer-refactor/SKILL.md` inside this repo, which makes it discoverable to Claude Code even without the plugin installed. But enabling it via `enabledPlugins` lets you run maintenance commands from inside this repo.
+
+**If `superpowers` is not installed at the machine level when working in this repo, Claude will be missing foundational skills** — even though `enabledPlugins` lists it. Install it first, then come back.
+
+## The framework in one minute
+
+- **Fire** — Every feature starts with a failing test. Delegate to `superpowers:test-driven-development`. Red, Green, Refactor. No implementation before a failing test exists.
+- **Hammer** — After the test suite is green, run the post-TDD refactor pass by invoking the `hammer-refactor` skill (committed at `.claude/skills/hammer-refactor/SKILL.md`). The skill scans this repo against `.aiforging/anti-patterns/`, proposes a prioritized slice list, and dispatches one fresh-context subagent per approved slice via `superpowers:subagent-driven-development`. Human reviews each slice's diff before the next one dispatches.
+- **Tempering** — Any new pattern or anti-pattern observed during real refactor work becomes its own `.md` file in `.aiforging/patterns/` or `.aiforging/anti-patterns/`. One pattern, one file. The library grows monotonically — we never edit old patterns silently. The reactive **`capture-pattern` skill** (committed at `.claude/skills/capture-pattern/SKILL.md`) watches for corrective moments during interactive sessions in this repo — when the human rejects a diff, corrects a structural choice, or says "don't do it that way" — and offers to persist the lesson as a new pattern or anti-pattern file with one click. Every captured file is automatically picked up by the next `hammer-refactor` run.
+
+## Architecture, in short
+
+Follow the folder layout in `.aiforging/architecture/domain-driven-hexagonal.md`. The short version:
+
+- `src/Domain/Feature/Subfeature/<Layer>/` where `<Layer>` is `Controller`, `Service`, `Repository`, `Entity`, `ValueObject`, or `DTO`.
+- Tests mirror the `src/` structure in `tests/Domain/Feature/Subfeature/<Layer>Test/`.
+- Controllers are single-action — one `__invoke` / `handle` / `execute` method per class. See `.aiforging/architecture/single-action-controllers.md`.
+- Repositories are separate classes from Entities. Services depend on `XxxRepositoryInterface`, not the framework's EntityManager / DbContext / DataSource directly. See `.aiforging/architecture/repositories.md`.
+- Domain concepts are Value Objects, not primitives. DTOs cross layer boundaries. See `.aiforging/architecture/dtos-and-value-objects.md`.
+- Naming rules are enforced — see `.aiforging/architecture/naming.md`.
+
+## Tests, in short
+
+- Tests must be able to build the database schema from the entity graph, not from migration files. See `.aiforging/tdd/test-harness-requirements.md`.
+- Repository tests hit a real isolated database. No mocked Repositories. See `.aiforging/tdd/repository-testing.md`.
+- If the test harness cannot satisfy the capability contract, STOP and fix the harness before writing new Repository tests.
+
+## What Claude should do in this repo
+
+1. **First session in this repo**: read `.aiforging/ANALYSIS.md` if it exists — it's the architecture-analyzer's report on where this codebase stands relative to AI Forging ideals. Also check whether this repo is registered in a forge workspace — if so, the current cross-repo plan likely lives at `<forge-workspace>/docs/features/<feature-name>/plan.md`, not in this repo. Ask the user where their forge workspace is if it's not obvious from the session context; a forge workspace is a directory with a `CLAUDE.md` marker containing the string `AI Forging workspace` and a `docs/features/` tree, and the current repo's absolute path lives in that workspace's `.claude/settings.local.json` under `permissions.additionalDirectories`.
+2. **Before writing code**: write the failing test. Use `superpowers:test-driven-development`.
+3. **After green tests**: if a refactor pass is warranted, invoke the `hammer-refactor` skill. Do NOT refactor ad-hoc without a pattern reference.
+4. **After a Hammer pass, OR during any interactive code review**: if you observed a reusable rule that the pattern library doesn't already capture, follow the `capture-pattern` skill (at `.claude/skills/capture-pattern/SKILL.md`) to persist it as a new file in `.aiforging/patterns/` or `.aiforging/anti-patterns/`. This is the Tempering pillar — the mechanism by which the library grows. The `capture-pattern` skill biases toward NOT prompting, so only offer when the correction clearly encodes a reusable, structural rule.
+5. **Before merging**: wait for human review. Four gates — tests, code review, architecture decisions, deployment authorization.
+
+## What Claude should NOT do in this repo
+
+- **Never skip Fire.** No implementation before a failing test.
+- **Never refactor without a pattern reference.** If a change doesn't correspond to a file in `.aiforging/patterns/` or `.aiforging/anti-patterns/`, it's either out of scope or a candidate for a new pattern — which is a Tempering task, not a Hammer task.
+- **Never collapse the pattern library into a single file.** One pattern, one file.
+- **Never mock the database in a Repository test.** Use the real test harness.
+- **Never introduce a fat controller.** See `.aiforging/anti-patterns/fat-controller.md`.
+- **Never sprinkle primitives through the domain.** See `.aiforging/anti-patterns/primitive-obsession.md`.
+- **Never autonomously deploy.** Human gates are not optional.
+
+## Where the current feature plan lives
+
+AI Forging plans are **centralized in the forge workspace**, not fragmented per-repo. If this repo is being worked on as part of a cross-repo feature, the current `plan.md` for that feature lives at `<forge-workspace>/docs/features/<feature-name>/plan.md`, and this repo will be named in the plan's `[target repo]` tags for each slice. Ask the user which feature is active if it's not obvious from context.
+
+If someone is working directly in this repo (not from a forge workspace), they can still use `hammer-refactor` and the local pattern library — but cross-repo coordination will be missing. That's a conscious trade-off.
+
+## Updating this file
+
+This file was installed by `/aiforging:setup` along with:
+
+- `.aiforging/` — the conventions library and seeded pattern/anti-pattern folders.
+- `.claude/skills/hammer-refactor/SKILL.md` — the executable Hammer stage, committed so teammates don't need the aiforging plugin installed to run it.
+- `.claude/skills/capture-pattern/SKILL.md` — the reactive Tempering feedback loop, committed so corrective moments during any interactive session in this repo can be persisted as pattern/anti-pattern files with one click.
+- `.claude/settings.json` — has an `enabledPlugins` block enabling `superpowers@claude-plugins-official` and `aiforging@claude-plugins-official`.
+
+If the project already had a `CLAUDE.md`, this content was appended rather than replacing anything. Feel free to edit — your changes will be preserved across re-runs of `setup` as long as the canonical AI Forging markers (the first heading and the pointers to `.aiforging/`) remain intact. Likewise, `configure-plugins.py` is idempotent, so re-running setup will not clobber plugin entries you added to `enabledPlugins` yourself.

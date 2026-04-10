@@ -1,0 +1,5 @@
+# macOS
+.DS_Store
+
+# Helper-script backups (scripts/configure-*.py emit these on mutation)
+*.bak-*

@@ -1,0 +1,15 @@
+{
+  "name": "aiforging",
+  "owner": {
+    "name": "Chris Holland",
+    "email": "cholland@mycertainpath.com",
+    "url": "https://aiforging.dev"
+  },
+  "plugins": [
+    {
+      "name": "aiforging",
+      "description": "AI Forging framework — test-first, pattern-driven refactoring, and domain-driven architecture conventions for AI-assisted development.",
+      "source": "./"
+    }
+  ]
+}

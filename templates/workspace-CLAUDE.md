@@ -1,0 +1,100 @@
+# Forge Workspace — Claude Context
+
+> **You are in an AI Forging workspace.** This is NOT a codebase. It is a central orchestration directory from which cross-repo feature work is driven. The actual code lives in the repos registered under `permissions.additionalDirectories` in `.claude/settings.local.json` (the gitignored, per-user settings file — see the "Settings file split" section below).
+
+## First thing to do in any session
+
+1. Read `docs/features/README.md` to refresh the feature-folder convention.
+2. Check whether the user named a specific feature. If yes, read that feature's `docs/features/<feature-name>/spec.md` and `plan.md` if they exist.
+3. If the user has not named a feature, ask which feature they want to work on (or whether they want to start a new one).
+
+## What this workspace is for
+
+- **Cross-repo feature planning.** Any feature that touches more than one repo has its spec and plan centralized here, not fragmented across the target repos.
+- **Spec/plan/execute orchestration.** The `superpowers` plugin's `brainstorming`, `writing-plans`, and `executing-plans` skills are the primary drivers. AI Forging layers feature-folder conventions and the `hammer-refactor` skill on top.
+- **Dispatching subagents across repos.** Plans written in `docs/features/<name>/plan.md` are structured so that each slice can be handed to a fresh-context subagent via `superpowers:subagent-driven-development`. Subagents read the slice, reach into the relevant target repo via additionalDirectories, make the change, run tests, and report back.
+
+## What this workspace is NOT for
+
+- **Not a code repo.** Do not write application source code here. Source code belongs in a target repo under `additionalDirectories`.
+- **Not a dumping ground.** Only `docs/features/<name>/` directories live here (plus this `CLAUDE.md`, the `README.md`, `.gitignore`, and the `.claude/` settings files). If you're tempted to drop a random `.py` or `.ts` file at the root, stop and ask where it actually belongs.
+- **Not a substitute for the target repos' own docs.** Architecture decisions that are specific to one repo belong inside that repo's `.aiforging/` or in an ADR within that repo. The workspace holds cross-cutting work.
+
+## Settings file split
+
+This workspace uses Claude Code's native two-file settings convention. Both files live under `.claude/`:
+
+- **`settings.json`** — COMMITTED to git. Holds only `enabledPlugins`. Shared with teammates; never contains absolute local paths. When a teammate clones the workspace, this file auto-activates `superpowers` and `aiforging` for them.
+- **`settings.local.json`** — GITIGNORED (by `.gitignore` at the workspace root). Holds `permissions.additionalDirectories` — the absolute local paths to the target repos on THIS machine. A teammate cloning the workspace gets no `settings.local.json` and must re-run `/aiforging:setup` on their own machine to register their own local copies of the targets.
+
+**When working in this workspace, do NOT edit either settings file by hand.** Use the aiforging helper scripts: `configure-plugins.py` for `settings.json`, `configure-directories.py` for `settings.local.json`. If you find a config inconsistency (e.g., `additionalDirectories` sitting in `settings.json` from an old version), offer to migrate by moving the key to `settings.local.json` — never silently rewrite.
+
+## Target repos
+
+The repos this workspace is onboarded to are listed in `.claude/settings.local.json` under `permissions.additionalDirectories`. Each one has its own `.aiforging/` folder containing:
+
+- `ANALYSIS.md` — snapshot from `architecture-analyzer` (regenerated on rerun).
+- `architecture/`, `tdd/` — AI Forging conventions copied in during onboarding.
+- `patterns/` and `anti-patterns/` — the refactoring library, seeded on onboarding and grown via the Tempering stage.
+
+Additionally, candidate target repos have two AI Forging skills committed at `.claude/skills/` so that anyone cloning the target repo can use them independently of whether the aiforging plugin is installed on their machine:
+
+- **`hammer-refactor/SKILL.md`** — the executable Hammer stage.
+- **`capture-pattern/SKILL.md`** — the reactive Tempering feedback loop (see next section).
+
+Each target repo also has its own `.claude/settings.json` with an `enabledPlugins` block committed to its git history, so teammates who clone the target repo (without cloning this workspace) still get `superpowers` and `aiforging` auto-activated when they run Claude inside the target.
+
+## Tempering feedback loop — capture-pattern
+
+This workspace also has `capture-pattern` installed at `.claude/skills/capture-pattern/SKILL.md`, which is the reactive mechanism for the Tempering pillar of the forge. When the human corrects your work during an interactive session in a way that encodes a reusable structural rule — "don't do it that way," "always do X," "never do Y," rejecting a diff with a structural reason — you should detect the corrective moment and follow the `capture-pattern` skill's instructions. The skill handles:
+
+- Classifying the correction as pattern vs anti-pattern (or asking the human if ambiguous).
+- Resolving WHICH target repo's library to write to. When running in the workspace, read the registered targets from `settings.local.json` and ask the human which target the pattern applies to (do NOT guess from conversation context — the human may be thinking about a different repo than the one whose code was on screen).
+- Duplicate-checking the existing library before drafting.
+- Drafting the file in the AI Forging pattern format and showing it for approval before writing.
+- Cross-linking with any related pattern or anti-pattern already in the library.
+
+The skill biases toward NOT prompting — only offer capture when the correction clearly encodes a reusable, structural rule. An over-eager `capture-pattern` prompt trains the human to reflexively decline, which breaks the whole loop.
+
+Every captured pattern is ONE `.md` file. The next `hammer-refactor` run against the affected target automatically picks it up. This is how the pattern library grows over time without any central document to update — Scalable Quality by adding individual files, contributed by every team member as they work on every feature.
+
+## Working flow
+
+For any feature you're asked to work on:
+
+1. **Spec.** If `docs/features/<feature-name>/spec.md` does not exist, use `superpowers:brainstorming` to interview the user and produce it. Do not skip this.
+2. **Plan.** Use `superpowers:writing-plans` to produce `plan.md` **in the AI Forging slice format** documented in `docs/features/README.md`. Each slice is tagged `[fire]`, `[hammer]`, or `[tempering]`, names its target repo, includes its test, and has an explicit subagent prompt.
+3. **Gates.** Any slice marked `[gate: architecture]`, `[gate: schema]`, or `[gate: contract]` must be explicitly approved by the user before it dispatches.
+4. **Execute Fire.** Use `superpowers:executing-plans` + `superpowers:test-driven-development` to walk the `[fire]` slices. Fire must produce a green test suite before any Hammer slice runs.
+5. **Execute Hammer.** Invoke `aiforging:hammer-refactor` on the target repo. The skill reads `plan.md`, scans the repo against `.aiforging/anti-patterns/`, and dispatches one subagent per approved slice. Human review after each slice.
+6. **Temper.** When the feature is done, any newly-discovered patterns or anti-patterns get written to the relevant target repo's `.aiforging/patterns/` or `.aiforging/anti-patterns/` as new `.md` files.
+
+## Hard rules
+
+- **Never execute Hammer before Fire is green.** The `hammer-refactor` skill enforces this, but you should too.
+- **Never weaken or skip tests.** If a test blocks a refactor, the refactor is wrong.
+- **Never write source code in this workspace.** Source code belongs in the target repos.
+- **Never delete or silently rewrite a feature folder.** History matters. If the spec is wrong, add a new feature folder with a new name.
+- **Never dispatch more than one subagent per refactor slice.** One pattern, one slice, one subagent. That's how we keep each refactor's reasoning scoped and reviewable.
+- **Never commit `.claude/settings.local.json`.** It contains absolute local paths that are meaningless or harmful on another machine. The `.gitignore` at the workspace root already protects it, but double-check `git status` before committing if you're unsure.
+- **Never write absolute local paths into `.claude/settings.json`.** That file is committed and shared. If a path needs to be written, it goes to `settings.local.json`.
+
+## Tool expectations
+
+Phase A of `/aiforging:setup` wrote an `enabledPlugins` block into this workspace's committed `.claude/settings.json`:
+
+```json
+{
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "aiforging@claude-plugins-official": true
+  }
+}
+```
+
+Claude Code auto-activates both plugins whenever it runs in this directory, as long as they're installed at the machine level:
+
+- **`aiforging`** — provides `/aiforging:setup`, the `architecture-analyzer` skill, and the `hammer-refactor` skill template.
+- **`superpowers`** — provides `test-driven-development`, `brainstorming`, `writing-plans`, `executing-plans`, and `subagent-driven-development`. AI Forging depends on these directly and does not reinvent them.
+
+If Claude Code warns that either plugin isn't installed, install it once at the machine level with `/plugin install <name>@claude-plugins-official`, then reopen the session. If you installed from a different marketplace (e.g., `superpowers@superpowers-dev`), update the `enabledPlugins` key in `.claude/settings.json` to match, or re-run `/aiforging:setup` and tell it the right source when prompted.

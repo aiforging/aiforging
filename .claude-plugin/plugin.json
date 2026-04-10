@@ -1,0 +1,22 @@
+{
+  "name": "aiforging",
+  "version": "0.1.0",
+  "description": "AI Forging — a structured AI-assisted development framework for producing robust, maintainable codebases. Test-first, pattern-driven refactoring, and domain-driven architecture, installed as a set of conventions + a prescriptive setup flow.",
+  "author": {
+    "name": "Chris Holland",
+    "email": "cholland@mycertainpath.com",
+    "url": "https://aiforging.dev"
+  },
+  "homepage": "https://aiforging.dev",
+  "repository": "https://github.com/aiforging/aiforging",
+  "license": "MIT",
+  "keywords": [
+    "tdd",
+    "refactoring",
+    "architecture",
+    "domain-driven-design",
+    "hexagonal",
+    "pattern-library",
+    "ai-assisted-development"
+  ]
+}
