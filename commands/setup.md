@@ -23,18 +23,19 @@ The forge workspace uses Claude Code's native two-file settings convention to cl
 
 Claude Code reads both files at session start and merges them. This means a teammate cloning the workspace gets `enabledPlugins` (superpowers + aiforging auto-activate) but must populate `settings.local.json` with their own target repo paths — via re-running `/aiforging:setup` on their own machine.
 
-**Every time this command writes settings, it must target the right file.** The two helper scripts exist for exactly this:
+**Every time this command writes settings, it must target the right file.** The helper scripts exist for exactly this:
 
 - `configure-plugins.py` → always targets `.claude/settings.json` (committed). Writes `enabledPlugins`.
 - `configure-directories.py` → always targets `.claude/settings.local.json` (per-user). Writes `permissions.additionalDirectories`.
+- `configure-workspace-pointer.py` → always targets `~/.claude/aiforging.json` (per-user, per-machine, under the user's Claude Code config dir — NOT under any workspace or target repo). Writes the `active_workspace` + `workspaces` pointer used by run-anywhere commands. The pointer file is a third kind of config entirely: it is not a Claude Code settings file, it is an AI-Forging-specific pointer that lives alongside Claude Code's user settings.
 
-Never mix these up. If you find yourself writing `additionalDirectories` into `settings.json` or `enabledPlugins` into `settings.local.json`, you are introducing a bug.
+Never mix these up. If you find yourself writing `additionalDirectories` into `settings.json`, `enabledPlugins` into `settings.local.json`, or workspace pointer data into either of those files, you are introducing a bug.
 
 ---
 
 ## Helper script runner (uv vs python3)
 
-The two helper scripts (`configure-plugins.py`, `configure-directories.py`) and the stack detector (`detect-project.py`) are PEP 723 single-file scripts with NO third-party dependencies. They are designed to be run with `uv run`, but any Python 3.10+ interpreter will execute them correctly — the `# /// script` metadata header is inert when invoked directly with `python3`.
+The helper scripts (`configure-plugins.py`, `configure-directories.py`, `configure-workspace-pointer.py`) and the stack detector (`detect-project.py`) are PEP 723 single-file scripts with NO third-party dependencies. They are designed to be run with `uv run`, but any Python 3.10+ interpreter will execute them correctly — the `# /// script` metadata header is inert when invoked directly with `python3`.
 
 **This matters because `uv` is NOT guaranteed to be on the user's interactive shell PATH.** On the author's own machine (2026-04-10 dogfood session), `uv` was installed but not on PATH at Claude Code invocation time, causing `uv run …` calls from this command to fail. The workaround is to probe for `uv` once and fall back to `python3`.
 
@@ -227,6 +228,27 @@ Whatever source the user confirms, pass the correct `<name>@<source>` identifier
 
 After seeding, show the user the tree that was created — call out explicitly that `settings.json` and `settings.local.json` are DIFFERENT files serving DIFFERENT purposes, and that `.gitignore` will protect the local file once the workspace becomes a git repo. Then confirm before proceeding.
 
+### Step A.2.5 — Register the workspace in the run-anywhere pointer file
+
+Write the new workspace's absolute path into the per-user pointer file at `~/.claude/aiforging.json` so that daily-driver commands like `/aiforging:new-feature` can find it even when the user runs them from outside the workspace. This file is owned by `configure-workspace-pointer.py`. It lives under the user's Claude Code config directory (NOT under `${CLAUDE_PLUGIN_ROOT}` — never write there) and is per-user.
+
+Before calling the helper, tell the user what it does and that it is per-user (not per-workspace, not per-target), and confirm:
+
+> I'll register this workspace at `~/.claude/aiforging.json` so that when you run `/aiforging:new-feature` from any directory — not just this workspace — it can find your active forge workspace automatically. The pointer file lives under your personal Claude config and is never committed to any repo. Proceed? [Y/n]
+
+Default: Y. If the user says no, skip this step and print a reminder that `/aiforging:new-feature` will only work from inside this workspace until the pointer file is populated.
+
+If yes, run:
+
+```bash
+$FORGE_PY ${CLAUDE_PLUGIN_ROOT}/scripts/configure-workspace-pointer.py set-active \
+  --workspace "$(pwd)"
+```
+
+The helper creates `~/.claude/aiforging.json` if it doesn't exist, sets `active_workspace` to the current workspace path, and prepends it to the `workspaces` history list (deduped). A timestamped backup of any pre-existing pointer file is created before the write. Read the JSON output and record `previous_active` and whether `changed_active` was true — if the user had a different active workspace before, mention it in the Phase A summary so they know the run-anywhere target switched.
+
+Rationale for doing this in Phase A: it means a user who bootstraps a workspace and then immediately runs `/aiforging:new-feature` from anywhere — even before onboarding any targets — will hit the newly-created workspace. If the user declines and later realizes they want run-anywhere support, they can always `cd` into the workspace and manually run the helper.
+
 ### Step A.3 — Offer to onboard the first target project
 
 Ask: **"Would you like to onboard your first target project now? [Y/n]"**. Default: Y.
@@ -266,6 +288,11 @@ Dependencies:
   superpowers plugin: <installed | skipped | missing>
   aiforging plugin:   enabled in .claude/settings.json
 
+Run-anywhere pointer:
+  <one of: "registered as active in ~/.claude/aiforging.json" |
+           "declined — /aiforging:new-feature will only work from inside this workspace" |
+           "previous active was <path> — switched to this workspace">
+
 Git:
   <one of: "initialized with initial commit <hash>" | "deferred — re-run setup or git init manually"
    | "already a git repo — no changes" | "nested inside <parent-repo>, left untracked here">
@@ -275,8 +302,9 @@ Next:
      (Phase B will also offer to commit the onboarding as a follow-up commit
      if the workspace is a git repo, and will offer git-init with target-aware
      remote inference if it isn't.)
-  2. Or start a feature: create docs/features/<feature-name>/ and use
-     superpowers:brainstorming to produce spec.md.
+  2. Or start a feature: /aiforging:new-feature <name> <prompt>
+     (works from any directory if you registered the run-anywhere pointer
+     above; otherwise, cd into this workspace first).
 ```
 
 Then STOP, unless the user routed here from "yes, onboard now" in Step A.3 — in which case continue to Phase B. (Note: when routing through Phase B, Step A.4 is skipped and the git integration runs as Step B.10 instead, so there's exactly one git integration opportunity per setup run.)
@@ -569,6 +597,40 @@ Show the user the commit hash and the short-status summary before the commit. If
 
 Record the git state (initialized / follow-up commit / declined / not applicable) for the Step B.11 summary.
 
+### Step B.10.5 — Refresh the run-anywhere pointer file
+
+Phase B runs are the signal that the current workspace is the user's most-recently-used forge workspace — they just onboarded a target into it. Set this workspace as the active run-anywhere target so that `/aiforging:new-feature` (and future daily-driver commands) invoked from outside the workspace land in the right place.
+
+This step is idempotent with Step A.2.5: if Phase A routed directly into Phase B (user said "yes, onboard now" at Step A.3), Phase A already set this workspace as active in the pointer file, and this step is a no-op. If Phase B was invoked directly (user re-ran `/aiforging:setup` from an already-initialized workspace to onboard another target), this step updates the pointer file to reflect "the workspace you're running Phase B in is the newly-current active one." Either way, the end state is correct.
+
+Before calling the helper, check whether the pointer file already points at this workspace — if it does and Phase B was invoked directly (not routed from Phase A), skip silently. If it points somewhere else, tell the user you're switching:
+
+```bash
+CURRENT_ACTIVE=$($FORGE_PY ${CLAUDE_PLUGIN_ROOT}/scripts/configure-workspace-pointer.py check \
+  | python3 -c "import json,sys; print(json.load(sys.stdin).get('active_workspace') or '')")
+```
+
+If `CURRENT_ACTIVE` already equals `$(pwd)`, print:
+
+> Run-anywhere pointer already points at this workspace. No change.
+
+and skip the write.
+
+Otherwise, confirm with the user:
+
+> I'd like to set `~/.claude/aiforging.json` to make this workspace the active run-anywhere target (previously: `<CURRENT_ACTIVE>` or `(none)`). That way, `/aiforging:new-feature` invoked from any directory will target this workspace. Proceed? [Y/n]
+
+Default: Y. If yes:
+
+```bash
+$FORGE_PY ${CLAUDE_PLUGIN_ROOT}/scripts/configure-workspace-pointer.py set-active \
+  --workspace "$(pwd)"
+```
+
+Record the pointer state for the Step B.11 summary: "set as active" / "already active — unchanged" / "declined by user".
+
+If no, skip silently and record "declined" for the summary. The previous active workspace, if any, remains the run-anywhere target.
+
 ### Step B.11 — Phase B summary
 
 Report back to the user in this exact format. Every line of the checklist must be present — use `✓` (done), `—` (declined by user), or `✗` (skipped because not eligible or missing prerequisite). This makes it easy to spot any item that got skipped.
@@ -593,7 +655,10 @@ Onboarding checklist:
   ✓  6. architecture-analyzer run → <target>/.aiforging/ANALYSIS.md (score: X/10)
   —  7. Frontend testing layer (declined / not applicable)
   ✓  8. Feature folder drafted at <workspace>/docs/features/<feature>/
-  ✓  9. Git: <initialized with initial commit <hash> |
+  ✓  9. Run-anywhere pointer: <set as active in ~/.claude/aiforging.json |
+                                already active — unchanged |
+                                declined — previous active remains>
+  ✓ 10. Git: <initialized with initial commit <hash> |
                  follow-up commit <hash> onto existing repo |
                  already a repo — no changes staged |
                  declined | nested — left tracked by parent repo>
