@@ -12,11 +12,21 @@ description: Run the Hammer stage of AI Forging on a passing test suite. Given a
 This skill runs when **all** of the following are true:
 
 1. A feature's tests are green (Fire stage is complete — see `superpowers:test-driven-development`).
-2. The user has opted into a refactor pass on a specific feature or module.
+2. The user (or an upstream subagent dispatched by plan.md) has opted into a refactor pass on a specific feature or module.
 3. There is a `plan.md` for the feature at `<forge-workspace>/docs/features/<feature-name>/plan.md`, OR the user is running a targeted "refactor this one thing" request against a specific file or class.
 4. The current target repo has `.aiforging/patterns/` and `.aiforging/anti-patterns/` seeded (installed during `/aiforging:setup` onboarding).
 
 If any of those are false, stop and tell the user what's missing. **Never refactor code that doesn't have passing tests.** Never install patterns on the fly.
+
+### How this skill gets triggered
+
+There are three legitimate entry points:
+
+1. **Plan-driven, automatic.** The AI Forging feature convention requires every Fire sequence in `plan.md` to end with a closing `[hammer]` slice (see `conventions/features/README.md` — "Every Fire sequence ends with a closing `[hammer]` slice"). When a Fire-stage subagent finishes its tasks and its tests go green, its prompt instructs it to dispatch `hammer-refactor` as a subagent against the files it just touched. **This is the default path.** A Fire sequence is not "done" until its closing Hammer pass has run.
+2. **User-invoked against a specific feature.** The user explicitly asks "run hammer on feature X" — this skill reads that feature's plan.md and scans the files it names.
+3. **User-invoked targeted mode.** The user asks "clean up this one file" with no active feature plan — skip the plan-reading step and treat the target as a one-shot.
+
+In all three paths, Hammer operates as a **dispatcher**, not a direct implementer. See `conventions/subagent-orchestration/README.md` for the parent-as-conductor rules that Hammer follows: the parent context loads no pattern content beyond detection signals, every refactor is dispatched as a fresh-context subagent, and the parent never touches a file on behalf of a dispatched subagent. Hammer is the canonical example of that discipline in action.
 
 ## What this skill does NOT do
 
@@ -86,7 +96,7 @@ When all approved slices are done and green, write a short summary of what was r
 
 - **Fire** (`superpowers:test-driven-development`) comes first. This skill refuses to run if Fire hasn't produced a green suite.
 - **Plan writing** (`superpowers:writing-plans`) produces the `plan.md` this skill reads in Step 1.
-- **Subagent dispatch** (`superpowers:subagent-driven-development`) is the transport this skill uses in Step 4. This skill's job is to decide *what* to dispatch; superpowers' job is *how* to dispatch it.
+- **Subagent dispatch** (`superpowers:subagent-driven-development`) is the transport this skill uses in Step 4. This skill's job is to decide *what* to dispatch; superpowers' job is *how* to dispatch it. The *policy* layer that tells Hammer (and every other plan-driven dispatch point) how to construct subagent prompts, how to order dispatches, and what the subagents are expected to read before starting lives in `conventions/subagent-orchestration/README.md`. Hammer follows that convention — it is not a special case.
 - **Architecture analyzer** (`aiforging:architecture-analyzer`) is a sibling skill that runs a non-destructive advisory pass. Hammer is the executable counterpart. Analyzer says "your code is shaped like X, here are the deltas from the ideal." Hammer takes those deltas and actually closes them, one slice at a time.
 
 ## Pattern library format
