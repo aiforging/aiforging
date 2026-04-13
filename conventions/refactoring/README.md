@@ -9,6 +9,34 @@ This directory is the **pattern library** for the Hammer stage of the forge. It 
 
 Each file is self-contained and describes exactly one concern. There is no monolithic "refactor rules" document. This is on purpose — see "Why one file per pattern" below.
 
+## Two-tier pattern library
+
+Patterns exist at two tiers, and the `hammer-refactor` skill merges both when scanning a target:
+
+**Shared tier** — lives at the workspace level. For separate forge workspaces (multi-repo teams): `<workspace>/.aiforging/patterns/` and `<workspace>/.aiforging/anti-patterns/`. For in-repo workspaces (monorepo/single-repo): `<repo-root>/.aiforging/patterns/` and `<repo-root>/.aiforging/anti-patterns/`. Shared patterns have a YAML frontmatter block with an `applies-to` list of stack identifiers (the same vocabulary `detect-project.py` outputs: `symfony-php`, `laravel-php`, `react`, `next`, `doctrine`, `eloquent`, etc.) or the special value `all` for universal patterns. The `hammer-refactor` skill reads shared patterns and filters by the current target's detected stack before dispatching subagents.
+
+**Target-local tier** — lives in each target's own `.aiforging/patterns/` and `.aiforging/anti-patterns/` (for multi-repo), or each sub-project's `.aiforging/patterns/` (for monorepo). Target-local patterns have no `applies-to` frontmatter — they apply unconditionally to that target. Use this tier for repo-specific patterns that only apply to one target (e.g., "this legacy repo uses X weird pattern because of Y historical debt").
+
+When both tiers contain a pattern file with the same filename, the target-local copy wins. This lets a target override a shared pattern with a repo-specific version.
+
+### Frontmatter format for shared patterns
+
+```yaml
+---
+applies-to: [symfony-php, doctrine]
+captured-from: hub-plus-api
+captured-date: 2026-04-13
+seeded: true
+---
+```
+
+- `applies-to` (required for shared tier): list of stack identifiers. Use `[all]` for universal patterns.
+- `captured-from` (optional): the target where the pattern was first observed.
+- `captured-date` (optional): when the pattern was captured.
+- `seeded` (optional): `true` for patterns shipped with the plugin and seeded during setup. Distinguishes plugin-provided patterns from team-captured ones.
+
+Target-local patterns omit the frontmatter entirely (or include only `captured-from` and `captured-date` for provenance). The `## Source` section at the bottom of the file body is preserved for human-readable attribution.
+
 ## The two skills this directory depends on
 
 AI Forging does not implement the refactor pass itself. It delegates to two skills shipped by the `superpowers` plugin:
@@ -23,8 +51,8 @@ If either skill is unavailable, the Hammer and Tempering stages degrade. Install
 Once the Fire stage is green:
 
 1. List the files changed in the current working session (`git diff --name-only` against the session's base, or a tracked set maintained by the loop).
-2. List the pattern files under `patterns/` and the anti-pattern files under `anti-patterns/`.
-3. For each pattern file, dispatch one fresh subagent via `superpowers:subagent-driven-development`. The subagent's context is exactly:
+2. Build the merged pattern set from both tiers: (a) all target-local patterns from the target's own `.aiforging/patterns/` and `.aiforging/anti-patterns/`, plus (b) all shared patterns from the workspace whose `applies-to` includes at least one of the target's detected stacks (or `all`). If a shared pattern and a target-local pattern share a filename, the target-local copy wins.
+3. For each pattern file in the merged set, dispatch one fresh subagent via `superpowers:subagent-driven-development`. The subagent's context is exactly:
    - The pattern file.
    - The changed-files list.
    - Read-only access to the rest of the codebase for reference.
@@ -81,12 +109,17 @@ Keep each file short and concrete. If you can't fit a pattern onto two screens o
 
 ## Adding a new pattern
 
-When a review or a refactor pass reveals a pattern you want to enforce going forward, use the `capture-pattern` skill (installed at `.claude/skills/capture-pattern/SKILL.md` in this repo) — it handles duplicate detection, the file template, cross-linking, and approval flow automatically. The manual steps it performs are:
+When a review or a refactor pass reveals a pattern you want to enforce going forward, use the `capture-pattern` skill (installed at `.claude/skills/capture-pattern/SKILL.md` in this repo or in the forge workspace) — it handles duplicate detection, the file template, tier selection, cross-linking, and approval flow automatically.
 
-1. Write a new file in `.aiforging/patterns/` or `.aiforging/anti-patterns/`, named in kebab-case.
-2. Use the file format documented below in "File format".
-3. Commit it alone, with a message that says what triggered its creation.
-4. Re-run the Hammer pass on the current working session. The new pattern's subagent now participates automatically (no wiring needed — the Hammer pass globs these directories on every run).
+The skill asks a key question at capture time: **"Does this apply only to `<current-target>`, or to all `<stack-family>` targets?"** If shared, it writes to the workspace-level shared tier with `applies-to` frontmatter. If local, it writes to the target's own `.aiforging/patterns/` or `.aiforging/anti-patterns/`.
+
+The manual equivalent:
+
+1. Decide the tier. If the pattern is generalizable across same-stack targets → shared tier (workspace-level `.aiforging/`). If repo-specific → target-local tier (target's `.aiforging/`).
+2. Write a new file named in kebab-case. For shared-tier files, include the `applies-to` frontmatter.
+3. Use the file format documented below in "File format".
+4. Commit it alone, with a message that says what triggered its creation.
+5. Re-run the Hammer pass. The new pattern's subagent participates automatically (no wiring needed — the Hammer pass globs both tiers on every run).
 
 Do NOT edit an existing pattern file to "also cover" a new concern. That's how files turn into monoliths. Make a new file.
 

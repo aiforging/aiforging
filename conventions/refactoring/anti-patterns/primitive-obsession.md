@@ -1,3 +1,8 @@
+---
+applies-to: [all]
+seeded: true
+---
+
 # Primitive Obsession
 
 ## Rule

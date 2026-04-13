@@ -1,3 +1,8 @@
+---
+applies-to: [symfony-php, laravel-php, spring-java, dotnet-csharp, ruby-on-rails, node-ts, node-js]
+seeded: true
+---
+
 # Extract Service From Controller
 
 ## Rule
