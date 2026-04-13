@@ -14,7 +14,7 @@ This skill runs when **all** of the following are true:
 1. A feature's tests are green (Fire stage is complete — see `superpowers:test-driven-development`).
 2. The user (or an upstream subagent dispatched by plan.md) has opted into a refactor pass on a specific feature or module.
 3. There is a `plan.md` for the feature at `<forge-workspace>/docs/features/<feature-name>/plan.md`, OR the user is running a targeted "refactor this one thing" request against a specific file or class.
-4. The current target repo has `.aiforging/patterns/` and `.aiforging/anti-patterns/` seeded (installed during `/aiforging:setup` onboarding).
+4. A pattern library exists — either at the workspace shared tier (`<workspace>/.aiforging/patterns/` + `.aiforging/anti-patterns/`), or at the target-local tier (`<target>/.aiforging/patterns/` + `.aiforging/anti-patterns/`), or both.
 
 If any of those are false, stop and tell the user what's missing. **Never refactor code that doesn't have passing tests.** Never install patterns on the fly.
 
@@ -40,15 +40,44 @@ In all three paths, Hammer operates as a **dispatcher**, not a direct implemente
 
 The Hammer stage is **not one big monolithic refactor pass**. It is a loop that dispatches one fresh-context subagent per refactor slice. This is the key insight from `superpowers:subagent-driven-development`: each subagent starts with a clean context window, reads exactly the pattern/anti-pattern file it needs, looks at the target code, makes the change, and hands back a report. Then the parent context reviews the report and dispatches the next slice. That's how we scale the pattern library from ~5 patterns today to 50+ without drowning in context.
 
+### Step 0 — Resolve the workspace and detect the target's stack
+
+Before anything else, locate the forge workspace and determine the current target's stack. This is needed for two-tier pattern merging.
+
+**Case A — session is running inside a target repo (multi-repo setup).**
+
+The target repo has `.aiforging/` at its root. The forge workspace is found by:
+1. Checking `~/.claude/aiforging.json` for `active_workspace`.
+2. If found, verify the path exists and contains `docs/features/README.md` with the AI Forging marker.
+3. If not found, ask the user: "Where is your forge workspace?"
+
+**Case B — session is running inside a monorepo / single-repo workspace.**
+
+The workspace IS the repo (or the repo root). Detect with: `docs/features/README.md` exists at the repo root with the AI Forging marker. The target is either the repo root itself (single-repo) or a sub-project within it (monorepo). If the repo has sub-projects with their own `.aiforging/`, resolve which sub-project the user is working in.
+
+**Case C — session is running inside the forge workspace itself (multi-repo).**
+
+The workspace is the cwd. The target must be specified — ask the user which registered target to run Hammer against if not obvious from context (e.g., from a `plan.md` slice that names the target).
+
+**Detect the target's stack** by running `detect-project.py` against the target root (or reading a cached detection result from `.aiforging/ANALYSIS.md` if present). The detected stack identifiers (e.g., `symfony-php`, `doctrine`, `react`) are used in Step 2 to filter shared-tier patterns.
+
 ### Step 1 — Read the current feature plan (if applicable)
 
 If the user invoked this skill in the context of a specific feature, read `<forge-workspace>/docs/features/<feature-name>/plan.md` to find any refactor slices explicitly listed. The plan is the source of truth for **what** to refactor.
 
 If the user invoked this skill in a targeted mode ("refactor this file"), skip this step and treat the target as a one-shot.
 
-### Step 2 — Scan the target code against the anti-pattern library
+### Step 2 — Build the merged pattern set from both tiers
 
-Walk `.aiforging/anti-patterns/` in the current target repo. For each `*.md` file, read its "Detection Signals" section and grep/analyze the target code for those signals. Build a candidate list of `(anti-pattern, file, line-range, severity)` tuples.
+The pattern library has two tiers. Merge them into a single set for this run:
+
+**Target-local tier** — glob `<target>/.aiforging/patterns/*.md` and `<target>/.aiforging/anti-patterns/*.md`. These apply unconditionally to this target (no frontmatter filtering).
+
+**Shared tier** — glob `<workspace>/.aiforging/patterns/*.md` and `<workspace>/.aiforging/anti-patterns/*.md`. For each file, read its YAML frontmatter `applies-to` list. Include the file only if `applies-to` contains at least one of the target's detected stack identifiers OR contains `all`. Skip files whose `applies-to` doesn't match (e.g., a `react`-only pattern when running against a Symfony backend).
+
+**Deduplication** — if a shared-tier file and a target-local file have the same filename, the target-local copy wins. This lets a target override a shared pattern with a repo-specific version.
+
+The merged set is the complete list of patterns and anti-patterns for this run. For each anti-pattern in the merged set, read its "Detect" section and grep/analyze the target code for those signals. Build a candidate list of `(anti-pattern, file, line-range, severity)` tuples.
 
 **This is the only step where the parent context loads anti-pattern content.** The parent context needs to know which anti-patterns *exist* in the code, but it does NOT need to know how to *fix* them — that goes to the subagent.
 
@@ -101,7 +130,7 @@ When all approved slices are done and green, write a short summary of what was r
 
 ## Pattern library format
 
-Each `.md` file in `.aiforging/patterns/` and `.aiforging/anti-patterns/` follows the format documented in `.aiforging/architecture/` (copied from the plugin's `conventions/refactoring/README.md`). Minimally, each file has:
+Each `.md` file in the pattern library (both the workspace shared tier and the target-local tier) follows the format documented in the plugin's `conventions/refactoring/README.md`. Shared-tier files have YAML frontmatter with `applies-to` for stack filtering; target-local files have no frontmatter. See `conventions/refactoring/README.md` for the full two-tier documentation. Minimally, each file has:
 
 - **Name** — imperative verb phrase for patterns ("Extract Service From Controller"), noun phrase for anti-patterns ("Fat Controller").
 - **Detection signals** — how to spot it in code. Concrete signals, not vibes.
@@ -119,16 +148,26 @@ User: I just finished Fire on the invoice tax calculation feature. Run Hammer on
       the backend repo to clean up the service layer.
 
 Hammer skill:
+  0. Resolves workspace: ~/forge (from ~/.claude/aiforging.json pointer).
+     Detects target stack: symfony-php, doctrine (from detect-project.py or
+     cached ANALYSIS.md).
   1. Reads ~/forge/docs/features/invoice-tax-calculation/plan.md, finds three
      refactor slices explicitly listed.
-  2. Scans ~/projects/certainpath-backend/src/Invoicing/ for anti-pattern signals.
+  2. Builds merged pattern set:
+     - Shared tier (~/forge/.aiforging/anti-patterns/): fat-controller.md
+       (applies-to includes symfony-php ✓), primitive-obsession.md (all ✓).
+       Shared pattern: extract-service-from-controller.md (symfony-php ✓).
+     - Target-local tier (~/projects/certainpath-backend/.aiforging/):
+       legacy-event-dispatcher.md (local override, no frontmatter).
+     - Merged: 4 patterns/anti-patterns for this run.
+     Scans target code for detection signals.
      Finds: fat-controller in CreateInvoiceController (line 45-120), primitive-
      obsession on TaxRate (line 78).
   3. Presents ranked list; user approves all three slices.
   4. Dispatches subagent A with extract-service-from-controller.md and
      CreateInvoiceController.php:45-120. Waits for report.
   5. Test suite runs: green. Shows diff. User approves.
-  6. Dispatches subagent B with value-object-for-money.md and TaxRate usages.
+  6. Dispatches subagent B with primitive-obsession.md and TaxRate usages.
      Waits for report.
   7. Test suite runs: green. Shows diff. User approves.
   8. Writes summary to plan.md. Tempering stage begins.
