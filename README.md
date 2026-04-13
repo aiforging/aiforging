@@ -10,6 +10,20 @@ AI Forging is a counterpoint to "vibe coding." The thesis: AI is incredibly powe
 
 Each iteration through the cycle leaves the codebase stronger than it started.
 
+## Day-to-day usage
+
+Once your workspace and targets are set up, these are the commands you'll reach for:
+
+**Building a new feature.** From any directory: `/aiforging:forge my-feature-name "brief description of what you want to build"`. It scaffolds a feature folder, pre-fills the spec, and walks you through refining scope and planning before any code is written. (Full form: `/aiforging:new-feature`.)
+
+**Reviewing code and catching a lesson.** You're pair-programming with Claude, spot something less than ideal, and explain the fix. Claude's `capture-pattern` skill activates and offers to persist the lesson as a new pattern or anti-pattern file — one correction, one file, immediately available on every future Hammer pass. It'll ask whether the pattern applies to just this repo or all same-stack targets.
+
+**Running a Hammer pass.** After a feature lands and the tests pass, invoke `hammer-refactor` against the changed files. It fans out one fresh-context subagent per applicable pattern — parallel, isolated, no drift. You review each proposal and accept or reject.
+
+**Auditing a codebase you just inherited.** Onboard it with `/aiforging:setup`, and the architecture analyzer produces a scored assessment with prioritized findings. A structured starting point instead of grepping around.
+
+**Planning work that spans repos.** From your forge workspace, `/aiforging:forge tax-inclusive-pricing` creates a single feature folder with one spec covering both backend and frontend targets — slices tagged per-repo, `[gate: contract]` on the API boundary. One plan, no drift between repos.
+
 ## Who this is for
 
 Software crafters with **established codebases** who already feel the pain of AI-generated sprawl and are ready to adopt an opinionated workflow. Teams whose backends are built around a Data Mapper ORM (Doctrine, Hibernate, Entity Framework Core, TypeORM, MikroORM) will get the most value out of the box. Teams on Active Record stacks (Eloquent, Rails) can still adopt the framework with caveats documented in the conventions.
