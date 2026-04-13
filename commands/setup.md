@@ -73,16 +73,43 @@ Before running any detection, load the following into your context without summa
 
 ---
 
+## Step 0.5 — Scenario interview (first run only)
+
+On a fresh run (no workspace markers detected yet), ask the user about their codebase organization before routing to Phase A. This determines whether the workspace will be a separate directory or the repo itself.
+
+> "How is your codebase organized?"
+>
+> 1. **Multiple independent repos** — e.g., a backend API in one repo and a frontend app in another.
+> 2. **Monorepo** — one repo with distinct sub-projects (e.g., `frontend/`, `backend/`, `packages/*`).
+> 3. **Single repo** — one repo, one stack (or tightly intertwined stacks in one directory tree).
+
+Based on the answer:
+
+- **Multiple repos (Scenario A)** → ask: "Do you already have a repo where centralized planning documents live for your team to share? Or would you like me to guide you toward creating a new one?"
+  - If they have one → the user should `cd` into that repo and re-run `/aiforging:setup`. It becomes the forge workspace. Route to Phase A (which will detect the empty workspace state) and note to the user that they'll onboard their other repos via Phase B.
+  - If they want to create one → the current empty directory becomes the forge workspace. Route to Phase A as currently designed (separate workspace).
+- **Monorepo (Scenario B)** → the user should be inside (or `cd` into) the monorepo root. The workspace IS the monorepo. Route to Phase A with `scenario=monorepo`. Phase A will skip `settings.local.json` creation (no `additionalDirectories` needed — everything is under one root) and will detect sub-projects after workspace initialization (see Step A.2.7).
+- **Single repo (Scenario C/D)** → the user should be inside (or `cd` into) the repo root. The workspace IS the repo. Route to Phase A with `scenario=single-repo`. Phase A will skip `settings.local.json` creation and treat the repo itself as the single target.
+
+Record the scenario choice — Phase B behavior depends on it (multi-repo Phase B uses `additionalDirectories`; monorepo/single-repo Phase B installs conventions into sub-projects or the repo root directly).
+
+**Skip this interview** if the workspace is already initialized (all four markers present) — Phase B knows the scenario from the existing workspace state.
+
+---
+
 ## Step 1 — Detect the phase
 
 The current working directory (cwd) at invocation time tells you which phase to run.
 
-**A directory is already a forge workspace if ALL of the following are true:**
+**A directory is already a forge workspace if the following REQUIRED markers are present:**
 
 1. `./CLAUDE.md` exists AND contains the string `AI Forging workspace` somewhere in the first 500 bytes (the marker from the workspace template).
 2. `./docs/features/README.md` exists.
 3. `./.claude/settings.json` exists (committed, holds `enabledPlugins`).
-4. `./.claude/settings.local.json` exists (gitignored, holds `additionalDirectories`).
+
+**Optional marker (Scenario A only):**
+
+4. `./.claude/settings.local.json` exists (gitignored, holds `additionalDirectories`). This file is ONLY present in Scenario A (multi-repo) workspaces. Monorepo and single-repo workspaces (Scenarios B/C) don't create it because the workspace IS the repo — no external paths to register.
 
 Run these checks:
 
@@ -102,9 +129,9 @@ test -f ./.claude/settings.local.json && echo "HAS_SETTINGS_LOCAL" || echo "NO_S
 
 **Route to phase:**
 
-- All four workspace markers present → **Phase B (onboard-project)**.
+- All three required markers present → **Phase B (onboard-project)**. (Presence or absence of `settings.local.json` distinguishes Scenario A from B/C but doesn't change the phase.)
 - Three markers present but `settings.local.json` missing AND `settings.json` contains `additionalDirectories` → **Phase B with migration preamble** (see Migration note above).
-- None or only some markers present → **Phase A (init-workspace)**.
+- None or only some required markers present → **Phase A (init-workspace)**. Step 0.5 will determine the scenario before init proceeds.
 - Mixed state (some markers missing, some present, and not the migration case) → STOP. Tell the user the workspace is in an inconsistent state, show which markers are missing, and ask whether to re-initialize or abort. Do not silently repair.
 
 ---
@@ -167,13 +194,17 @@ JSON
 
 # .claude/settings.local.json — GITIGNORED, per-user. Holds absolute paths to target
 # repos. Phase B writes to this file, never to settings.json.
-cat > ./.claude/settings.local.json <<'JSON'
+# ONLY CREATE FOR SCENARIO A (multi-repo). Scenarios B/C don't need additionalDirectories
+# because the workspace IS the repo — all targets are local sub-directories.
+if [ "$SCENARIO" = "multi-repo" ]; then
+  cat > ./.claude/settings.local.json <<'JSON'
 {
   "permissions": {
     "additionalDirectories": []
   }
 }
 JSON
+fi
 
 # .gitignore — lives at the workspace root. Protects settings.local.json and the
 # timestamped backups our helper scripts leave behind. Active immediately if the user
@@ -200,12 +231,21 @@ GITIGNORE
 # Claude is launched from here. This is the Tempering feedback loop: during any
 # session in the workspace (e.g., drafting a plan, reviewing a subagent's output)
 # when the human corrects the AI and the correction encodes a reusable rule,
-# the skill will offer to persist it as a pattern/anti-pattern in the appropriate
-# target repo's .aiforging/ library. The skill resolves which target to write to
-# by reading permissions.additionalDirectories from settings.local.json.
+# the skill will offer to persist it as a pattern/anti-pattern. The skill asks
+# whether captures should go to the workspace shared tier or a target-local tier.
 mkdir -p ./.claude/skills/capture-pattern
 cp ${CLAUDE_PLUGIN_ROOT}/skills/capture-pattern/SKILL.md \
    ./.claude/skills/capture-pattern/SKILL.md
+
+# Seed the SHARED TIER of the pattern library at the workspace level.
+# These are the framework's starting patterns — they have applies-to frontmatter
+# for stack filtering. hammer-refactor reads this directory and filters by target
+# stack. Target repos get EMPTY local-tier directories during Phase B onboarding;
+# the seeded content lives here at the workspace level (Decision 22 in PLAN.md).
+mkdir -p ./.aiforging/patterns ./.aiforging/anti-patterns
+cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/patterns/*.md      ./.aiforging/patterns/
+cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/anti-patterns/*.md ./.aiforging/anti-patterns/
+cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/README.md          ./.aiforging/README.md
 ```
 
 Then enable the required plugins in the workspace's **committed** settings file so Claude Code automatically activates them when any teammate runs Claude from this directory:
@@ -249,13 +289,68 @@ The helper creates `~/.claude/aiforging.json` if it doesn't exist, sets `active_
 
 Rationale for doing this in Phase A: it means a user who bootstraps a workspace and then immediately runs `/aiforging:new-feature` from anywhere — even before onboarding any targets — will hit the newly-created workspace. If the user declines and later realizes they want run-anywhere support, they can always `cd` into the workspace and manually run the helper.
 
+### Step A.2.7 — Monorepo / single-repo sub-project detection (scenario B and C only)
+
+**Skip this step entirely for Scenario A (multiple repos).** Multi-repo workspaces discover targets via Phase B onboarding, not via sub-project detection.
+
+For **Scenario B (monorepo)** and **Scenario C (single repo)**, the workspace IS the repo root. Run `detect-project.py` against the cwd to discover the stack(s) present:
+
+```bash
+$FORGE_PY ${CLAUDE_PLUGIN_ROOT}/scripts/detect-project.py "$(pwd)"
+```
+
+Parse the JSON output. `detect-project.py` already recurses into child directories for meta-repo detection — the `children` array in the output contains detected sub-projects with their own `stack`, `frameworks`, and `path` fields.
+
+**If `children` is non-empty (monorepo with sub-projects):**
+
+Present the detected sub-projects for confirmation:
+
+> "I detected the following sub-projects in your monorepo:"
+>
+> 1. `frontend/` — react, next
+> 2. `backend/` — symfony-php, doctrine
+> 3. `packages/shared/` — node-ts
+>
+> "Which of these should I onboard with AI Forging conventions? [all / pick by number / none]"
+
+Default: all. For each confirmed sub-project, record it as a target. These targets will be onboarded inline — Phase A continues into a streamlined Phase B loop for each sub-project (no `additionalDirectories` needed since everything is under one root).
+
+**If `children` is empty (single project at root — Scenario C, or a monorepo whose structure wasn't auto-detected):**
+
+The repo root itself is the single target. Confirm with the user:
+
+> "This looks like a single `<detected-stack>` project. I'll install AI Forging conventions at the repo root. OK? [Y/n]"
+
+If yes, record the repo root as the single target. If no, ask the user to point out sub-project directories manually:
+
+> "Tell me the paths to the sub-projects you'd like to onboard (relative to the repo root), separated by commas."
+
+Run `detect-project.py` against each path and proceed.
+
+**For both monorepo and single-repo scenarios, skip `settings.local.json` creation.** There are no `additionalDirectories` to register — the workspace IS the repo, and all targets are subdirectories (or the root itself). The `.claude/settings.local.json` file is only needed for Scenario A (multi-repo) where targets live at external absolute paths.
+
+After this step, the detected/confirmed targets are held in memory for inline onboarding. For Scenario B/C, Step A.3 changes behavior — instead of asking "onboard your first target?", it proceeds directly to inline onboarding of the confirmed sub-projects (see Step A.3).
+
 ### Step A.3 — Offer to onboard the first target project
+
+**Scenario A (multi-repo):**
 
 Ask: **"Would you like to onboard your first target project now? [Y/n]"**. Default: Y.
 
 If yes, route directly to **Phase B** (the rest of this document). The workspace is now initialized and counts as a workspace from here on. The git integration subroutine will run at the end of Phase B (Step B.10) with the benefit of target repo metadata for remote inference.
 
 If no, proceed to **Step A.4** (git integration without target info) and then **Step A.5** (Phase A summary).
+
+**Scenario B/C (monorepo or single repo):**
+
+Step A.2.7 already detected and confirmed the sub-project targets. Do NOT ask whether to onboard — proceed directly to inline onboarding. For each confirmed target (sub-project path or repo root), run Phase B Steps B.2 through B.7 against it, with these adjustments:
+
+- **Skip Step B.1** (project path prompt) — the path is already known from Step A.2.7.
+- **Skip Step B.3** (register in `settings.local.json`) — monorepo/single-repo targets don't use `additionalDirectories`.
+- **Skip Step B.10** (git integration) per-target — run it ONCE after all sub-projects are onboarded, back in Step A.4.
+- **Skip Step B.10.5** (workspace pointer refresh) — already done in Step A.2.5.
+
+If multiple sub-projects were confirmed, onboard them sequentially. After all targets are onboarded, proceed to **Step A.4** for git integration (the workspace IS the repo, so `git rev-parse` will likely show it's already a git repo — Step A.4 handles this gracefully).
 
 ### Step A.4 — Git integration (onboard-declined path)
 
@@ -272,8 +367,11 @@ After the subroutine returns (either "initialized", "deferred", or "declined"), 
 
 ### Step A.5 — Phase A summary
 
+**Scenario A (multi-repo) — onboarding declined:**
+
 ```
 AI Forging workspace initialized at: <abs path>
+Scenario: multi-repo (separate workspace)
 
 Files created:
   ./CLAUDE.md                                      ← workspace context for Claude
@@ -282,6 +380,8 @@ Files created:
   ./.claude/settings.json                          ← committed: enabledPlugins only
   ./.claude/settings.local.json                    ← gitignored: additionalDirectories (empty)
   ./.claude/skills/capture-pattern/SKILL.md        ← Tempering feedback loop
+  ./.aiforging/patterns/                           ← shared-tier seeded patterns
+  ./.aiforging/anti-patterns/                      ← shared-tier seeded anti-patterns
   ./.gitignore                                     ← protects settings.local.json + backups
 
 Dependencies:
@@ -299,15 +399,48 @@ Git:
 
 Next:
   1. Re-run /aiforging:setup in this directory to onboard a target project.
-     (Phase B will also offer to commit the onboarding as a follow-up commit
-     if the workspace is a git repo, and will offer git-init with target-aware
-     remote inference if it isn't.)
   2. Or start a feature: /aiforging:new-feature <name> <prompt>
-     (works from any directory if you registered the run-anywhere pointer
-     above; otherwise, cd into this workspace first).
 ```
 
-Then STOP, unless the user routed here from "yes, onboard now" in Step A.3 — in which case continue to Phase B. (Note: when routing through Phase B, Step A.4 is skipped and the git integration runs as Step B.10 instead, so there's exactly one git integration opportunity per setup run.)
+**Scenario B/C (monorepo / single repo) — inline onboarding completed:**
+
+```
+AI Forging workspace initialized at: <abs path>
+Scenario: <monorepo | single-repo>
+
+Workspace files:
+  ./CLAUDE.md                                      ← workspace context for Claude
+  ./README.md                                      ← human-readable workspace overview
+  ./docs/features/README.md                        ← feature-folder convention
+  ./.claude/settings.json                          ← committed: enabledPlugins only
+  ./.claude/skills/capture-pattern/SKILL.md        ← Tempering feedback loop
+  ./.claude/skills/hammer-refactor/SKILL.md        ← executable Hammer stage
+  ./.aiforging/patterns/                           ← shared-tier seeded patterns
+  ./.aiforging/anti-patterns/                      ← shared-tier seeded anti-patterns
+  ./.gitignore                                     ← protects settings.local.json + backups
+
+Onboarded targets:
+  <target-1-path>/  (<stack>) — conventions installed, ANALYSIS.md written
+  <target-2-path>/  (<stack>) — conventions installed, ANALYSIS.md written
+  ...
+
+Dependencies:
+  superpowers plugin: <installed | skipped | missing>
+  aiforging plugin:   enabled in .claude/settings.json
+
+Git:
+  <already a git repo — onboarding changes staged / committed>
+
+Next:
+  Start a feature: /aiforging:new-feature <name> <prompt>
+```
+
+Note: For Scenario B/C, `settings.local.json` is NOT created — the workspace IS the repo and all targets are local sub-directories (or the root itself). No `additionalDirectories` needed.
+
+Then STOP.
+
+- **Scenario A, "yes, onboard now":** Continue to Phase B. (Step A.4 is skipped; git integration runs as Step B.10 instead, so there's exactly one git integration opportunity per setup run.)
+- **Scenario B/C:** Inline onboarding already happened during Step A.3. Phase A is done. STOP here.
 
 ---
 
@@ -315,13 +448,19 @@ Then STOP, unless the user routed here from "yes, onboard now" in Step A.3 — i
 
 Only run these steps if phase detection routed here, OR if Phase A's Step A.3 routed here.
 
-> **The onboarding checklist.** Phase B performs up to six things for each target repo being onboarded. Every item is offered with a default; the user can decline any of them individually. This list is what to keep in mind as the phase walks:
+> **Scenario-dependent entry points.** Phase B can be reached three ways:
 >
-> 1. **Register** the target in the workspace's `.claude/settings.local.json` under `permissions.additionalDirectories` (the gitignored per-user settings file — never in the committed `.claude/settings.json`). (Always done if the user confirms the project.)
+> - **Scenario A (multi-repo):** Reached from Phase A Step A.3 ("yes, onboard now") or from a re-run of `/aiforging:setup` in an existing workspace. All steps run as documented.
+> - **Scenario B/C (monorepo / single repo) inline onboarding:** Reached from Phase A Step A.3's inline loop. Steps B.1 (path prompt), B.8 (`settings.local.json` registration), and B.9 (workspace pointer) are SKIPPED — the target path comes from Step A.2.7 detection, and there's no `additionalDirectories` to manage.
+> - **Re-run in existing workspace:** Phase detection routes directly to Phase B. The scenario is inferred from the workspace state (presence/absence of `settings.local.json`).
+
+> **The onboarding checklist.** Phase B performs up to six things for each target being onboarded. Every item is offered with a default; the user can decline any of them individually. This list is what to keep in mind as the phase walks:
+>
+> 1. **Register** the target in the workspace's `.claude/settings.local.json` under `permissions.additionalDirectories` (the gitignored per-user settings file — never in the committed `.claude/settings.json`). **(Scenario A only — skipped for monorepo/single-repo where the workspace IS the repo.)**
 > 2. **Superpowers prerequisite check.** Verify superpowers is installed at the user level (user is running Claude Code on a machine that has it). If not, recommend installing. This step does NOT install anything into the target repo — superpowers is a user-level plugin. But its presence is recorded in the target's `.aiforging/CLAUDE.md` as a documented prerequisite so future contributors know.
-> 3. **Conventions library** → copy `conventions/architecture/` and `conventions/tdd/` into `<target>/.aiforging/`. Also write a per-repo `.aiforging/CLAUDE.md` pointer. (Backend/fullstack only.)
-> 4. **AI Forging skills bundle** → copy `hammer-refactor` SKILL.md to `<target>/.claude/skills/hammer-refactor/SKILL.md` (executable Hammer stage) and `capture-pattern` SKILL.md to `<target>/.claude/skills/capture-pattern/SKILL.md` (reactive Tempering feedback loop). (Backend/fullstack only; offered as a bundle with default Y, with a fallback to per-skill offers if the bundle is declined.)
-> 5. **Pattern + anti-pattern library seed** → copy `conventions/refactoring/patterns/*.md` and `conventions/refactoring/anti-patterns/*.md` into `<target>/.aiforging/patterns/` and `<target>/.aiforging/anti-patterns/`. (Backend/fullstack only; offered with default Y if hammer-refactor was installed.)
+> 3. **Conventions library** → copy `conventions/architecture/` and `conventions/tdd/` into `<target>/.aiforging/`. Also write a per-repo `.aiforging/CLAUDE.md` pointer. (Backend/fullstack only.) For monorepo sub-projects, `<target>` is the sub-project path (e.g., `./backend/`), not the repo root.
+> 4. **AI Forging skills bundle** → copy `hammer-refactor` SKILL.md to `<target>/.claude/skills/hammer-refactor/SKILL.md` (executable Hammer stage) and `capture-pattern` SKILL.md to `<target>/.claude/skills/capture-pattern/SKILL.md` (reactive Tempering feedback loop). (Backend/fullstack only; offered as a bundle with default Y, with a fallback to per-skill offers if the bundle is declined.) For monorepo sub-projects, skills install at the REPO ROOT's `.claude/skills/` (not per sub-project) since Claude Code reads skills from the cwd's `.claude/skills/`.
+> 5. **Pattern + anti-pattern library seed** → create EMPTY `<target>/.aiforging/patterns/` and `<target>/.aiforging/anti-patterns/` directories for the target-local tier. Seeded patterns live in the workspace shared tier (`.aiforging/patterns/` at the workspace root), installed during Phase A Step A.2. (Backend/fullstack only; offered with default Y if hammer-refactor was installed.) If the workspace shared tier is empty (e.g., a cloned workspace where shared patterns weren't committed), fall back to copying seeded patterns into the target-local tier.
 > 6. **Architecture analyzer run** → invoke the `architecture-analyzer` skill against the target, write output to `<target>/.aiforging/ANALYSIS.md`. (Backend/fullstack only.)
 > 7. **Frontend testing layer** (optional) → for frontend/fullstack, offer the Playwright conventions.
 > 8. **Draft a feature folder in the workspace** (optional) → turn analyzer findings into `<workspace>/docs/features/<name>/spec.md` + `plan.md` in the AI Forging slice format.
@@ -369,7 +508,9 @@ Keep the project in your working memory as:
 
 ### Step B.3 — Register under additionalDirectories (in settings.local.json)
 
-Add the target project to the current workspace's **per-user** settings file, `./.claude/settings.local.json`. This is the gitignored file — absolute local paths never go into the committed `settings.json`.
+**Skip this step for Scenario B/C (monorepo / single repo).** There are no external paths to register — the workspace IS the repo and all targets are local sub-directories.
+
+**Scenario A (multi-repo) only:** Add the target project to the current workspace's **per-user** settings file, `./.claude/settings.local.json`. This is the gitignored file — absolute local paths never go into the committed `settings.json`.
 
 ```bash
 # Probe for uv; fall back to python3 (see "Helper script runner" section above).
@@ -485,24 +626,29 @@ cp ${CLAUDE_PLUGIN_ROOT}/skills/capture-pattern/SKILL.md \
 
 **Why capture-pattern lives in both the workspace and each target repo.** Phase A Step A.2 already installed `capture-pattern` into the forge workspace's `.claude/skills/` so it auto-activates in cross-repo forge sessions (where it resolves the target to write to by reading `settings.local.json`). Installing it a second time in each target repo gives teammates who clone *just the target repo* the same feedback loop when they're working on the target directly in that repo (e.g., doing a code review outside the forge workspace). The two copies are identical — the per-target copy is there for discoverability, not for a different behavior.
 
-### Step B.6 — Offer to seed the pattern library
+### Step B.6 — Create empty target-local pattern directories
 
-For any target that received the conventions copy (Step B.4) OR the Hammer/Tempering skills bundle (Step B.5), ask:
-
-> The `hammer-refactor` skill needs a `.aiforging/patterns/` and `.aiforging/anti-patterns/` library to operate on. I can seed this target repo's library with the current AI Forging core library (one `.md` file per pattern). You'll add to it over time as the Tempering stage discovers new patterns during real refactors.
->
-> Seed the pattern/anti-pattern library in `<target>`? [Y/n]
-
-Default: Y if `hammer-refactor` was installed in Step B.5, otherwise n.
-
-If yes:
+Create the **target-local tier** directories in the target repo. These start empty — they're for repo-specific pattern captures that only apply to this target. The seeded patterns (shipped with the plugin) already live in the **workspace shared tier** (seeded in Phase A Step A.2). The `hammer-refactor` skill merges both tiers on every run.
 
 ```bash
 mkdir -p <target>/.aiforging/patterns <target>/.aiforging/anti-patterns
-cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/patterns/*.md      <target>/.aiforging/patterns/
-cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/anti-patterns/*.md <target>/.aiforging/anti-patterns/
-cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/README.md          <target>/.aiforging/patterns/README.md
 ```
+
+If this is the first onboarding AND the workspace shared tier hasn't been seeded yet (e.g., the workspace was created by an older version of the plugin that predates the two-tier model), seed it now:
+
+```bash
+# Only if <workspace>/.aiforging/patterns/ doesn't exist or is empty
+if [ ! -d ./.aiforging/patterns ] || [ -z "$(ls -A ./.aiforging/patterns/ 2>/dev/null)" ]; then
+  mkdir -p ./.aiforging/patterns ./.aiforging/anti-patterns
+  cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/patterns/*.md      ./.aiforging/patterns/
+  cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/anti-patterns/*.md ./.aiforging/anti-patterns/
+  cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/README.md          ./.aiforging/README.md
+fi
+```
+
+Tell the user:
+
+> Created empty `patterns/` and `anti-patterns/` directories in `<target>/.aiforging/` for repo-specific pattern captures. The framework's seeded patterns (fat-controller, primitive-obsession, extract-service-from-controller) live in the workspace's shared tier at `<workspace>/.aiforging/` and apply to all targets with matching stacks. Use `capture-pattern` during code reviews to add new patterns — it'll ask whether each capture should be shared or target-local.
 
 ### Step B.7 — Run the architecture-analyzer skill on the target
 
