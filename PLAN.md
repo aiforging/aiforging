@@ -204,7 +204,7 @@ aiforging/                          # plugin source repo (where we are)
 
 ## Current Status
 
-Last updated: 2026-04-10 (Session 4 — conventions extension, /aiforging:new-feature command, run-anywhere pointer file)
+Last updated: 2026-04-13 (Session 5 — two-tier pattern library, workspace-as-role, update-targets design)
 
 ### Built
 
@@ -215,7 +215,7 @@ Last updated: 2026-04-10 (Session 4 — conventions extension, /aiforging:new-fe
 - `scripts/configure-directories.py` — manages `permissions.additionalDirectories` in `.claude/settings.local.json`. Subcommands: `check`, `add`, `remove`. Idempotent, timestamped backups, atomic writes. Smoke-tested Session 1.
 - `scripts/configure-plugins.py` — manages the `enabledPlugins` map in `.claude/settings.json`. Subcommands: `check`, `enable`, `disable`, `set`. Validates identifiers with `^[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+$`, idempotent, timestamped backups, atomic writes. Smoke-tested Session 2-continued (all subcommands, bad-id rejection, idempotency, combined round with `configure-directories.py`).
 - `scripts/configure-workspace-pointer.py` — manages the per-user run-anywhere pointer file at `~/.claude/aiforging.json`. Subcommands: `check`, `set-active`, `add`, `forget`. Enforces absolute paths, rejects non-existent paths by default (`--force` override for bootstrap scripts), prepends new workspaces to a deduped most-recently-used history, clears `active_workspace` when the active one is forgotten rather than guessing a replacement. Timestamped backups + atomic writes like the other two helpers. Smoke-tested Session 4 (all subcommands in sequence against a scratch pointer file).
-- `commands/setup.md` — the `/aiforging:setup` slash command. Two phases (A: init-workspace, B: onboard-project) with explicit phase detection, split settings files, git integration subroutine, uv/python3 runner probe, a Hard Rule forbidding writes under `${CLAUDE_PLUGIN_ROOT}`, and (Session 4) Steps A.2.5 + B.10.5 that register the workspace in `~/.claude/aiforging.json` so daily-driver commands like `/aiforging:new-feature` work from any directory.
+- `commands/setup.md` — the `/aiforging:setup` slash command. Two phases (A: init-workspace, B: onboard-project) with explicit phase detection, split settings files, git integration subroutine, uv/python3 runner probe, a Hard Rule forbidding writes under `${CLAUDE_PLUGIN_ROOT}`, and (Session 4) Steps A.2.5 + B.10.5 that register the workspace in `~/.claude/aiforging.json` so daily-driver commands like `/aiforging:new-feature` work from any directory. **Session 5 update:** Step 0.5 scenario interview (multi-repo / monorepo / single-repo), Step A.2 seeds shared-tier patterns, Step A.2.7 monorepo sub-project detection, conditional `settings.local.json` (Scenario A only), Phase B scenario-dependent entry points, inline onboarding for Scenarios B/C. Decisions 21-23.
 - `commands/new-feature.md` — the `/aiforging:new-feature` slash command. The daily-driver entry point for starting a feature in a forge workspace. Parses feature-name + initial-prompt arguments with kebab-case normalization, detects existing features (exact / substring / token-overlap match) with new/extend/abort choice, offers flat-vs-nested shape picker, creates `docs/features/<name>/` with the right structure, seeds `spec.md` with a Step-1 Summary section pre-filled from the user's initial prompt, and hands off to `superpowers:brainstorming` at the Summary checkpoint. Supports run-anywhere mode via `~/.claude/aiforging.json` lookup when cwd is not a workspace. Never writes `plan.md` (that's Step 4 of the planning workflow, not Step 1 of this command). Never touches target repos. Never commits to git.
 - `templates/` — bootstrap templates for forge workspace init (Phase A):
   - `templates/workspace-CLAUDE.md` — central `CLAUDE.md` for the forge workspace.
@@ -232,9 +232,15 @@ Last updated: 2026-04-10 (Session 4 — conventions extension, /aiforging:new-fe
   - `conventions/frontend-testing/` — `README.md`, `playwright-conventions.md`.
 - `skills/architecture-analyzer/SKILL.md` — read-only advisory analysis skill with six dimensions, scoring rubric, and severity ladder. Runs from the forge workspace against an onboarded target. Dogfooded Session 3 against hub-plus-api (score 6/10).
 - `skills/hammer-refactor/SKILL.md` — executable Hammer stage. Copied into each onboarded target repo's `.claude/skills/hammer-refactor/`. Reads the forge workspace's current `plan.md` plus the target's `.aiforging/patterns|anti-patterns/`, then dispatches one fresh-context subagent per applicable pattern via `superpowers:subagent-driven-development`. **Session 4 update:** documented three entry points (plan-driven auto-trigger as the default path, user-invoked against a specific feature, user-invoked targeted mode) and cross-referenced `conventions/subagent-orchestration/README.md` as the policy layer Hammer follows — Hammer is not a special case, it's the canonical example of parent-as-conductor discipline.
-- `skills/capture-pattern/SKILL.md` — reactive Tempering feedback loop. Copied into BOTH the forge workspace `.claude/skills/` (Phase A) AND each onboarded target repo's `.claude/skills/` (Phase B). Detects corrective moments during interactive sessions and offers to persist the lesson as a new `.md` file in the resolved target's `.aiforging/patterns/` or `.aiforging/anti-patterns/` directory. Workspace copy resolves the write target by reading `permissions.additionalDirectories` from `settings.local.json`. Decision 19.
-- `README.md` — public-facing plugin README with install instructions, Fire/Hammer/Tempering explanation, and `superpowers` relationship section.
+- `skills/capture-pattern/SKILL.md` — reactive Tempering feedback loop. Copied into BOTH the forge workspace `.claude/skills/` (Phase A) AND each onboarded target repo's `.claude/skills/` (Phase B). Detects corrective moments during interactive sessions and offers to persist the lesson as a new `.md` file in the resolved target's `.aiforging/patterns/` or `.aiforging/anti-patterns/` directory. **Session 5 update:** two-tier support — Step 4.5 asks shared vs target-local, generates `applies-to` YAML frontmatter for shared-tier captures. Four-case workspace resolution (target repo, monorepo/in-repo, separate workspace, unknown). Decision 22.
+- `commands/forge.md` — thin alias for `/aiforging:new-feature`. Session 5.
+- `LICENSE` — MIT license, copyright 2026 Chris Holland. Session 5.
+- `README.md` — public-facing plugin README with install instructions, Fire/Hammer/Tempering explanation, and `superpowers` relationship section. **Session 5 update:** updated for two-tier patterns, workspace-as-role scenarios, shipped commands (new-feature, forge), and current directory tree.
 - `CLAUDE.md` — plugin-level context for Claude working on the plugin source itself.
+
+### Designed (command file written, not yet dogfooded)
+
+- `commands/update-targets.md` — `/aiforging:update-targets`. Propagates plugin-level updates (skills, conventions, shared-tier seeded patterns) into the workspace and all onboarded targets. Diff-and-ask semantics: nothing overwritten silently, per-item approval, timestamped backups. Handles Scenario A/B/C target discovery, seeded-vs-user-captured pattern distinction, pre-two-tier migration, and stale-path cleanup. Session 5.
 
 ### Not started
 
@@ -242,7 +248,6 @@ Last updated: 2026-04-10 (Session 4 — conventions extension, /aiforging:new-fe
 - `scripts/analyze-architecture.py` — dropped from the v0.1.0 plan. The analysis pass is a skill (`architecture-analyzer/SKILL.md`), not a script. The skill uses `Read`/`Glob`/`Grep` directly rather than shelling out.
 - `/aiforging:execute-plan` — takes a `PROPOSED_PLAN.md` and drives execution via superpowers' `executing-plans` + `subagent-driven-development`. Out of scope for v0.1.0 ("install + analyze + propose plan" boundary).
 - First dedicated stack adapter beyond the happy path (Laravel, Spring, .NET, Node/TS).
-- `LICENSE` file — README references MIT; the actual `LICENSE` file still needs to be added to the repo root.
 
 ## Setup Command Flow (current)
 
@@ -594,11 +599,14 @@ The rework touched every framework file that references the pattern library or w
 10. `c02d3d9` — `conventions/CLAUDE.md.template: two-tier`
 11. `9019689` — `templates: two-tier`
 12. `36dcda6` — `setup.md: two-tier + workspace-as-role`
-13. This commit — `PLAN.md: Session 5 log (continued)`
+13. `1240bd1` — `PLAN.md: Session 5 log (continued)`
+14. `34fa1cb` — `setup.md: fix consistency issues from audit`
+15. `9a5f334` — `README.md: update for two-tier patterns, workspace-as-role, shipped commands`
+16. `3956e32` — `commands: add /aiforging:update-targets — diff-and-ask propagation command`
+17. This commit — `PLAN.md: Session 5 status + session log final`
 
 **Next session opening moves:**
 
-1. **Interactive dogfood** — `mkdir ~/forge-test && cd ~/forge-test && claude --plugin-dir ~/projects/aiforging`, run Phase A end-to-end with each scenario (multi-repo, monorepo, single-repo). Test Phase B against a real CertainPath target. Test `/aiforging:new-feature` or `/aiforging:forge` from outside the workspace.
-2. **Re-validate project README.md** — Chris explicitly flagged this for later. Make sure it's still accurate after the two-tier rework.
-3. `/aiforging:update-targets` design — the propagation-gap command that sweeps `additionalDirectories` and refreshes each target's `.aiforging/` copies + skills with diff-and-ask semantics.
-4. Clean up stale `.git/*.lock.bak.*` and `.git/objects/*/tmp_obj_*` files from the host shell (FUSE mount artifacts from Cowork commits).
+1. **Interactive dogfood** — Chris will handle this himself. Clean up previous attempt artifacts first, then test all three scenarios (multi-repo, monorepo, single-repo) end-to-end via `claude --plugin-dir ~/projects/aiforging`.
+2. **Dogfood `/aiforging:update-targets`** — bootstrap a workspace, onboard a target, simulate a plugin update (edit a convention or skill in the source repo, `/reload-plugins`), then run `/aiforging:update-targets` to verify the diff-and-ask flow works.
+3. Clean up stale `.git/*.lock.bak.*` and `.git/objects/*/tmp_obj_*` files from the host shell (FUSE mount artifacts from Cowork commits).
