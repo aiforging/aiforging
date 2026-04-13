@@ -560,9 +560,45 @@ Implementation:
 4. `1778745` — `Add MIT license`
 5. This commit — `PLAN.md: Session 5 log`
 
+**Two-tier pattern library + workspace-as-role rework (continued in same session after context loss):**
+
+Chris raised concerns about the `~/forge` working directory model not fitting all scenarios (monorepo, single repo, blended repo). After discussion, three new decisions were locked in:
+
+- **Decision 21 (workspace-as-role):** Four scenarios — multi-repo (separate workspace), monorepo (workspace IS repo root), single blended repo, single-purpose repo. The workspace is a role, not always a separate directory.
+- **Decision 22 (two-tier pattern library):** Shared tier at workspace level with `applies-to` YAML frontmatter (stack identifiers). Target-local tier per-target with no frontmatter. `hammer-refactor` merges both tiers filtered by detected stack. `capture-pattern` asks shared-vs-local at capture time. Default recommendation: shared.
+- **Decision 23 (monorepo sub-project detection):** `detect-project.py` already recurses children for meta-repos. Setup presents detected sub-projects for user confirmation, each gets its own `.aiforging/`.
+
+Chris explicitly said: "I would be in favor of going all-in on Approach 2 right now, even if it means a lot of reworking of the framework. I would rather do this now, while nobody is using this."
+
+The rework touched every framework file that references the pattern library or workspace model:
+
+6. `162cb57` — `PLAN.md: Decisions 21-23 — workspace-as-role, two-tier pattern library, monorepo detection`
+7. `91c5293` — `conventions/refactoring: two-tier pattern library + applies-to frontmatter` — added frontmatter to all three seeded patterns (`extract-service-from-controller`: all backend stacks, `fat-controller`: all backend stacks, `primitive-obsession`: `all`). Updated README with two-tier docs.
+8. `5aa0572` — `skills/hammer-refactor: workspace awareness + two-tier pattern merging` — Step 0 resolves workspace (Cases A/B/C). Step 2 merges shared + local tiers with stack filtering. Filename-based dedup (local wins).
+9. `9743b09` — `skills/capture-pattern: two-tier support — shared vs target-local with stack frontmatter` — Step 2 four-case workspace resolution. Step 4.5 tier selection with `applies-to` frontmatter for shared captures. Duplicate check across both tiers.
+10. `c02d3d9` — `conventions/CLAUDE.md.template: update for two-tier pattern model` — Hammer, Tempering, and "What Claude should do" sections updated for both tiers.
+11. `9019689` — `templates: update workspace-CLAUDE.md and workspace-README.md for two-tier patterns` — New two-tier section in CLAUDE.md. Directory tree, Tempering section, commit list updated in README.md.
+12. `36dcda6` — `setup.md: two-tier pattern library + workspace-as-role (Decisions 21-23)` — Step 0.5 scenario interview. Phase A seeds shared tier, conditional `settings.local.json`. Step A.2.7 monorepo sub-project detection. Phase B scenario-dependent entry points. Step B.3 skip for Scenario B/C. Step B.6 empty target-local dirs.
+
+**Commits this session (full list, in order):**
+
+1. `51a260c` — `commands: add /aiforging:forge as thin pointer alias for /aiforging:new-feature`
+2. `0d4be5c` — `conventions/features: add layer-split anti-pattern callout for nested shape`
+3. `ae52eab` — `setup + template: close two propagation gaps from Session 4`
+4. `1778745` — `Add MIT license`
+5. `063ade1` — `PLAN.md: Session 5 log` (first half)
+6. `162cb57` — `PLAN.md: Decisions 21-23`
+7. `91c5293` — `conventions/refactoring: two-tier + frontmatter`
+8. `5aa0572` — `skills/hammer-refactor: two-tier merging`
+9. `9743b09` — `skills/capture-pattern: two-tier support`
+10. `c02d3d9` — `conventions/CLAUDE.md.template: two-tier`
+11. `9019689` — `templates: two-tier`
+12. `36dcda6` — `setup.md: two-tier + workspace-as-role`
+13. This commit — `PLAN.md: Session 5 log (continued)`
+
 **Next session opening moves:**
 
-1. **Interactive dogfood** — `mkdir ~/forge-test && cd ~/forge-test && claude --plugin-dir ~/projects/aiforging`, run Phase A end-to-end, Phase B against a real CertainPath target, then `/aiforging:new-feature` or `/aiforging:forge` from outside the workspace.
-2. `/aiforging:update-targets` design — the propagation-gap command that sweeps `additionalDirectories` and refreshes each target's `.aiforging/` copies + skills with diff-and-ask semantics.
-3. Consider adding the `capture-pattern` skill content (currently `skills/capture-pattern/SKILL.md` exists but may need the same level of detail as `hammer-refactor`).
+1. **Interactive dogfood** — `mkdir ~/forge-test && cd ~/forge-test && claude --plugin-dir ~/projects/aiforging`, run Phase A end-to-end with each scenario (multi-repo, monorepo, single-repo). Test Phase B against a real CertainPath target. Test `/aiforging:new-feature` or `/aiforging:forge` from outside the workspace.
+2. **Re-validate project README.md** — Chris explicitly flagged this for later. Make sure it's still accurate after the two-tier rework.
+3. `/aiforging:update-targets` design — the propagation-gap command that sweeps `additionalDirectories` and refreshes each target's `.aiforging/` copies + skills with diff-and-ask semantics.
 4. Clean up stale `.git/*.lock.bak.*` and `.git/objects/*/tmp_obj_*` files from the host shell (FUSE mount artifacts from Cowork commits).
