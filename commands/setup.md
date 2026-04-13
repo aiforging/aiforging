@@ -93,7 +93,7 @@ Based on the answer:
 
 Record the scenario choice — Phase B behavior depends on it (multi-repo Phase B uses `additionalDirectories`; monorepo/single-repo Phase B installs conventions into sub-projects or the repo root directly).
 
-**Skip this interview** if the workspace is already initialized (all four markers present) — Phase B knows the scenario from the existing workspace state.
+**Skip this interview** if the workspace is already initialized (the required markers are present) — Phase B knows the scenario from the existing workspace state.
 
 ---
 
@@ -451,10 +451,10 @@ Only run these steps if phase detection routed here, OR if Phase A's Step A.3 ro
 > **Scenario-dependent entry points.** Phase B can be reached three ways:
 >
 > - **Scenario A (multi-repo):** Reached from Phase A Step A.3 ("yes, onboard now") or from a re-run of `/aiforging:setup` in an existing workspace. All steps run as documented.
-> - **Scenario B/C (monorepo / single repo) inline onboarding:** Reached from Phase A Step A.3's inline loop. Steps B.1 (path prompt), B.8 (`settings.local.json` registration), and B.9 (workspace pointer) are SKIPPED — the target path comes from Step A.2.7 detection, and there's no `additionalDirectories` to manage.
+> - **Scenario B/C (monorepo / single repo) inline onboarding:** Reached from Phase A Step A.3's inline loop. Steps B.1 (path prompt), B.3 (`settings.local.json` registration), B.10 (git integration per-target), and B.10.5 (workspace pointer) are SKIPPED — the target path comes from Step A.2.7 detection, and there's no `additionalDirectories` to manage.
 > - **Re-run in existing workspace:** Phase detection routes directly to Phase B. The scenario is inferred from the workspace state (presence/absence of `settings.local.json`).
 
-> **The onboarding checklist.** Phase B performs up to six things for each target being onboarded. Every item is offered with a default; the user can decline any of them individually. This list is what to keep in mind as the phase walks:
+> **The onboarding checklist.** Phase B performs the following for each target being onboarded. Every item is offered with a default; the user can decline any of them individually. This list is what to keep in mind as the phase walks:
 >
 > 1. **Register** the target in the workspace's `.claude/settings.local.json` under `permissions.additionalDirectories` (the gitignored per-user settings file — never in the committed `.claude/settings.json`). **(Scenario A only — skipped for monorepo/single-repo where the workspace IS the repo.)**
 > 2. **Superpowers prerequisite check.** Verify superpowers is installed at the user level (user is running Claude Code on a machine that has it). If not, recommend installing. This step does NOT install anything into the target repo — superpowers is a user-level plugin. But its presence is recorded in the target's `.aiforging/CLAUDE.md` as a documented prerequisite so future contributors know.
@@ -590,7 +590,7 @@ For projects with `role` in (`backend`, `fullstack`):
    - If it does, append (don't overwrite) a section pointing at `.aiforging/`.
    - If it doesn't, create it with just that section.
 
-For projects with `role` == `frontend`: skip this step. Frontend conventions install happens in Step B.8.
+For projects with `role` == `frontend`: skip this step. Frontend projects can optionally install the Playwright testing layer in Step B.8.
 
 ### Step B.5 — Offer to install the AI Forging skills into the target repo
 
