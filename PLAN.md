@@ -241,6 +241,7 @@ Last updated: 2026-04-13 (Session 5 — two-tier pattern library, workspace-as-r
 ### Designed (command file written, not yet dogfooded)
 
 - `commands/update-targets.md` — `/aiforging:update-targets`. Propagates plugin-level updates (skills, conventions, shared-tier seeded patterns) into the workspace and all onboarded targets. Diff-and-ask semantics: nothing overwritten silently, per-item approval, timestamped backups. Handles Scenario A/B/C target discovery, seeded-vs-user-captured pattern distinction, pre-two-tier migration, and stale-path cleanup. Session 5.
+- `commands/uninstall.md` — `/aiforging:uninstall`. Clean removal of all plugin-sourced artifacts from workspace and targets while preserving user-created content (feature specs/plans, user-captured patterns). Four-category classification (plugin-sourced → remove, user-created → never touch, settings entries → remove entries not files, template-seeded → ask based on customization). Uses `seeded: true` frontmatter to distinguish plugin patterns from user captures. `docs/features/` tree always preserved. Idempotent, no backups (originals in plugin). Session 5.
 
 ### Not started
 

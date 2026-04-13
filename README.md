@@ -218,6 +218,7 @@ v0.1.0 — **research preview.** The plugin structure, conventions library, two-
 
 - `/aiforging:execute-plan` — walks through a workspace feature plan with per-step approval gates via `superpowers:executing-plans` and `superpowers:subagent-driven-development`.
 - `/aiforging:update-targets` — propagates plugin-level updates (new skills, new conventions, new shared-tier patterns) into previously onboarded target repos with diff-and-ask semantics.
+- `/aiforging:uninstall` — clean removal of all plugin artifacts while preserving your feature specs, plans, and user-captured patterns.
 - Dedicated stack adapters for Laravel, Spring/Java, .NET/C#, Node/TS.
 - `/aiforging:new-project` — greenfield scaffolding with stack templates.
 - A community marketplace of patterns contributed by users.
