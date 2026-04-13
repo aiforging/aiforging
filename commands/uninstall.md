@@ -8,18 +8,54 @@
 
 ## Prerequisites
 
-- Must be run from inside an AI Forging workspace (same detection as `/aiforging:setup` Step 1).
 - The plugin must still be loaded (this command runs from the plugin — once the plugin is uninstalled at the machine level, this command is no longer available).
+- Can be run from **any directory** — the workspace, a target repo, or anywhere else. See Step 0 for how the invocation context determines scope.
 
-## Step 0 — Discover scope
+## Step 0 — Detect invocation context and discover scope
 
-Detect workspace scenario and discover targets, same as `/aiforging:update-targets` Step 0:
+The command works from three places, mirroring the run-anywhere model of `/aiforging:new-feature`:
+
+### Case 1 — Invoked from inside a forge workspace
+
+Detected by the workspace markers (same as `/aiforging:setup` Step 1): `./CLAUDE.md` contains "AI Forging workspace", `./docs/features/README.md` exists, `./.claude/settings.json` exists.
+
+Discover targets based on workspace scenario:
 
 - **Scenario A (multi-repo):** read `settings.local.json` → list of target paths.
 - **Scenario B (monorepo):** scan for sub-directories containing `.aiforging/`.
 - **Scenario C (single repo):** check if `./.aiforging/` exists at the workspace root.
 
-Present what was found:
+Default scope: **full** (workspace + all targets).
+
+### Case 2 — Invoked from inside a target repo
+
+Detected by: `./.aiforging/CLAUDE.md` exists (the per-repo pointer written during Phase B onboarding) AND the workspace markers are NOT present (this is a target, not a workspace).
+
+Find the workspace:
+
+1. Read `~/.claude/aiforging.json` to get the active workspace path.
+2. If the pointer file doesn't exist or has no active workspace, ask the user: "What's the path to your forge workspace? (Or press Enter to clean up just this target without touching the workspace.)"
+3. If a workspace is found, verify the cwd is registered in that workspace's `settings.local.json` (Scenario A) or is a sub-directory of the workspace (Scenario B/C).
+
+Default scope: **this target only**. Offer to expand:
+
+> "This looks like a target repo onboarded to the workspace at `<workspace-path>`. What would you like to clean up?"
+>
+> 1. **This target only** (default) — remove AI Forging artifacts from this repo.
+> 2. **This target + workspace** — also clean up the workspace itself.
+> 3. **Everything** — clean up the workspace and all its targets.
+
+### Case 3 — Invoked from anywhere else
+
+Use the run-anywhere pointer:
+
+1. Read `~/.claude/aiforging.json` to get the active workspace path.
+2. If found, confirm: "Your active AI Forging workspace is at `<path>`. Uninstall from there? [Y/n]"
+3. If not found, abort: "No AI Forging workspace detected. Run this command from inside a workspace or target repo."
+
+If the user confirms, resolve the workspace and proceed as Case 1.
+
+### Present what was found
 
 > "I'll walk you through removing AI Forging artifacts. Nothing is deleted until you approve each step."
 >
@@ -28,13 +64,16 @@ Present what was found:
 > 1. `/abs/path/to/backend` — conventions, skills, patterns
 > 2. `/abs/path/to/frontend` — conventions only
 >
-> "Scope: [full / workspace-only / pick targets]"
+> "Scope: [full / workspace-only / pick targets / this-target-only]"
 
 Options:
 
-- **Full** (default) — clean workspace + all targets.
+- **Full** (default when invoked from workspace) — clean workspace + all targets.
 - **Workspace-only** — clean workspace artifacts, leave targets untouched.
 - **Pick targets** — choose which targets to clean; workspace is always included.
+- **This target only** (default when invoked from a target repo) — clean only the current target. The workspace and other targets are untouched. Skip Step 2 entirely.
+
+The selected scope determines which steps run. If scope is "this target only", only Step 1 runs (for the current target) and Step 2 (workspace) is skipped. The summary in Step 4 adapts accordingly.
 
 ## Step 1 — Inventory and classify (per target)
 
@@ -95,6 +134,8 @@ Target: /abs/path/to/backend
 **Also ask about superpowers:** "The `superpowers` plugin was enabled alongside `aiforging`. Remove its `enabledPlugins` entry too? [y/N]" Default: N — superpowers is useful on its own and the user may want to keep it.
 
 ## Step 2 — Inventory and classify (workspace)
+
+**Skip this step if scope is "this target only".** The workspace is not in scope — only the target repo's artifacts are being removed.
 
 ### Category A — Plugin-sourced (safe to remove)
 
@@ -183,8 +224,16 @@ $FORGE_PY ${CLAUDE_PLUGIN_ROOT}/scripts/configure-plugins.py disable \
   --plugin superpowers@<source>
 ```
 
-4. **Delete `settings.local.json`** (workspace, Scenario A only, if approved).
-5. **Clear the run-anywhere pointer.** Remove the workspace entry from `~/.claude/aiforging.json`:
+4. **Delete `settings.local.json`** (workspace, Scenario A only, full scope, if approved).
+5. **Deregister target from workspace** (target-only scope, Scenario A). If a workspace was found and the target is registered in its `settings.local.json`, offer to remove the `additionalDirectories` entry for this target:
+
+```bash
+$FORGE_PY ${CLAUDE_PLUGIN_ROOT}/scripts/configure-directories.py remove \
+  --settings-file <workspace>/.claude/settings.local.json \
+  --directory "<abs-path-to-target>"
+```
+
+6. **Clear the run-anywhere pointer.** (Full scope only.) Remove the workspace entry from `~/.claude/aiforging.json`:
 
 ```bash
 $FORGE_PY ${CLAUDE_PLUGIN_ROOT}/scripts/configure-workspace-pointer.py forget \
@@ -194,6 +243,8 @@ $FORGE_PY ${CLAUDE_PLUGIN_ROOT}/scripts/configure-workspace-pointer.py forget \
 **No backups.** Unlike `update-targets` (which overwrites files that might be restored), uninstall deletes files that are exact copies of plugin content. The originals live in the plugin itself — re-running `/aiforging:setup` regenerates everything. Creating `.bak` files during an uninstall would defeat the purpose of cleaning up.
 
 ## Step 4 — Summary
+
+**Full / workspace + targets scope:**
 
 ```
 AI Forging artifacts removed.
@@ -219,6 +270,24 @@ To fully remove the plugin from your machine:
 
 To remove superpowers too (if you no longer need it):
   /plugin uninstall superpowers@<source>
+```
+
+**Target-only scope:**
+
+```
+AI Forging artifacts removed from this target.
+
+Target: /abs/path/to/backend
+  Plugin files removed: 11
+  User patterns kept: 2
+  Settings entries removed: aiforging (superpowers kept)
+
+Your workspace at /abs/path/to/workspace was not modified.
+To also clean up the workspace, run /aiforging:uninstall from there
+(or re-run here and choose "Everything").
+
+To fully remove the plugin from your machine:
+  /plugin uninstall aiforging@<source>
 ```
 
 ## Edge cases
