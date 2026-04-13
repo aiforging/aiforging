@@ -61,6 +61,26 @@ Work items are **numbered** with a two-digit prefix (`01-`, `02-`, …) to prese
 
 Feature names are kebab-case and as concrete as possible. Prefer `invoice-tax-calculation` over `taxes`. Prefer `customer-import-csv-v2` over `import`.
 
+### When NOT to use nested — the layer-split anti-pattern
+
+**Do not split a cohesive feature into nested work items along repo boundaries.** This is the most common misuse of the nested shape.
+
+Example of the anti-pattern: a feature like "tax-inclusive pricing" that touches a backend API and a frontend app gets decomposed as `01-backend-tax-model/` and `02-frontend-tax-display/`, each with its own spec and plan. This is wrong because the backend API contract and the frontend's expectations are tightly coupled — two separate specs can drift apart, and by the time the frontend work item starts, the API shape may not match what the frontend needs.
+
+The correct shape is **flat**: one spec that describes the holistic behavior across both repos, one plan whose slices are tagged with their target repo and ordered so that cross-repo dependencies are explicit. Use `[gate: contract]` on the slice that locks in the API shape, so the human approves the contract before any frontend slice dispatches. The plan might look like:
+
+```
+Slice 1 [fire] target:backend — Domain model for tax calculation
+Slice 2 [fire] target:backend — API endpoint exposing tax-inclusive prices
+Slice 3 [gate: contract] — Human approves the API response shape
+Slice 4 [hammer] target:backend — Hammer pass on Slices 1–2
+Slice 5 [fire] target:frontend — Price display component consuming the new endpoint
+Slice 6 [fire] target:frontend — Integration tests against the real API
+Slice 7 [hammer] target:frontend — Hammer pass on Slices 5–6
+```
+
+**Nested is for sequential phases, not layer splits.** Use nested work items when a feature has genuinely independent phases that are each separately plannable and reviewable — for example, a data migration where Phase 1 is a read-only dual-write and Phase 2 is the cutover that drops the old path. Each phase has its own timeline, its own approval gate, and its own rollback story. That's what the numbered work-item folders are for.
+
 ## Planning workflow
 
 Producing spec.md and plan.md is not a one-shot prompt. It is a four-step interactive workflow that keeps the human in the loop at every decision point. The steps below apply whether you are using `superpowers:brainstorming` + `superpowers:writing-plans` (recommended) or driving the conversation manually.

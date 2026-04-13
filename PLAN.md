@@ -456,3 +456,23 @@ Implementation:
 2. Fresh `claude --plugin-dir` dogfood of the run-anywhere flow: bootstrap a new `~/forge-test` via Phase A, verify the pointer file gets written, `cd` out, run `/aiforging:new-feature` from somewhere else, verify the detection and creation flow works, verify the Summary checkpoint hand-off to superpowers:brainstorming fires.
 3. Still standing: LICENSE file, `/aiforging:update-targets` design, hammer-refactor propagation when patterns change upstream.
 4. Consider a `/forge` alias for `/aiforging:new-feature` if Chris confirms he'd use it — either as a second thin command file or via Claude Code's alias mechanism if one exists.
+
+### Session 5 — 2026-04-13
+
+**Picking up from Session 4 wrap-up.** Two items carried over from where Session 4 cut out mid-reply:
+
+1. **`commands/forge.md` committed** (`51a260c`). Chris requested a `/forge` alias for `/aiforging:new-feature`. Implemented as a thin pointer file: when invoked, Claude reads `${CLAUDE_PLUGIN_ROOT}/commands/new-feature.md` and executes it exactly, treating arguments as if passed to `/aiforging:new-feature`. One source of truth — no duplicated logic. Plugin namespacing means the alias resolves as `/aiforging:forge`, not bare `/forge`.
+
+2. **Layer-split anti-pattern callout added to the feature convention** (this commit). During a day-to-day walkthrough in Session 4, I incorrectly used nested shape to split a cohesive backend+frontend feature (`tax-inclusive-pricing`) into repo-boundary work items (`01-backend-tax-model/` and `02-frontend-tax-display/`). Chris caught it: separate specs per repo let the API contract drift. The correct shape is FLAT — one spec, one plan, per-slice target-repo tags, `[gate: contract]` on the API-shape slice. Nested is only for sequential phases (e.g., dual-write migration → cutover). Added an explicit "When NOT to use nested — the layer-split anti-pattern" subsection to both `conventions/features/README.md` (canonical) and `templates/docs-features-README.md` (workspace template mirror).
+
+**Commits this session:**
+
+1. `51a260c` — `commands: add /aiforging:forge as thin pointer alias for /aiforging:new-feature`
+2. This commit — `conventions/features: add layer-split anti-pattern callout for nested shape`
+
+**Next session opening moves (carried forward + updated):**
+
+1. Fix the two propagation gaps from Session 4: Phase B Step B.4 copies `conventions/subagent-orchestration/` and `conventions/CLAUDE.md.template` references it.
+2. Fresh `claude --plugin-dir` dogfood of Session 4+5 work.
+3. Still standing: LICENSE file, `/aiforging:update-targets` design, hammer-refactor propagation when patterns change upstream.
+4. Consider adding the `capture-pattern` skill as a Tempering entry point (currently referenced in conventions but not built as a skill).

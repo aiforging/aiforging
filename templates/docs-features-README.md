@@ -45,6 +45,14 @@ docs/features/<feature-name>/
 
 Work items use a numeric two-digit prefix (`01-`, `02-`, …) that reflects logical dependency order. Don't nest if there's only one work item; don't flatten if there are several.
 
+### When NOT to use nested — the layer-split anti-pattern
+
+**Do not split a cohesive feature into nested work items along repo boundaries.** A feature like "tax-inclusive pricing" touching a backend API and a frontend app should NOT become `01-backend-tax-model/` and `02-frontend-tax-display/` — two separate specs can drift apart, and the API contract may not match the frontend's needs by the time the second work item starts.
+
+The correct shape is **flat**: one spec covering holistic behavior across both repos, one plan with per-slice target-repo tags and explicit cross-repo ordering. Use `[gate: contract]` on the slice that locks the API shape so the human approves it before frontend slices dispatch.
+
+**Nested is for sequential phases, not layer splits** — e.g., a data migration where Phase 1 is dual-write and Phase 2 is cutover. Each phase has its own timeline, approval gate, and rollback story.
+
 ## Planning workflow (four steps)
 
 1. **Create spec.md from the initial prompt.** Draft a **Summary** section capturing the user's ask in your own words. Stop. Confirm the Summary with the user before writing anything else. This is a hard checkpoint.
