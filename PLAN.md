@@ -38,6 +38,32 @@ These were agreed during the initial design conversation. Don't relitigate witho
 
 **Decision 20 (candidate) — upstream pattern propagation.** Parked for post-v1. When a pattern captured in one target's `.aiforging/patterns/` turns out to be generalizable across all targets, a future `/aiforging:propose-pattern` command will let teams promote it back up to the plugin's `conventions/refactoring/patterns/` library so all future onboarded targets start with it. For v1, the flow is manual: if a pattern is worth sharing, PR it against the plugin source. This parking note exists so the design space isn't forgotten.
 
+21. **Workspace-as-role: the forge workspace is not always a separate directory.** (Replaces the rigid "always a separate directory" assumption in Decision 13.) The forge workspace is a *role* — "the place where spec/plan files and the shared pattern library live" — that adapts to the user's repo topology:
+    - **Scenario A — multi-repo.** Multiple independent repos (backend API + frontend app, etc.). The forge workspace is a **separate directory** (the current model): a dedicated repo that houses `docs/features/`, the shared pattern library, and `.claude/settings.local.json` with `additionalDirectories` pointing at the target repos. Nothing changes from the current flow.
+    - **Scenario B — monorepo.** One git repo with distinct sub-projects (`frontend/`, `backend/`, `packages/*`). The forge workspace **is the monorepo root**. `docs/features/` lives at the root. Each sub-project gets its own `.aiforging/` with stack-appropriate conventions. No `additionalDirectories` needed (everything is under one root). No separate git history needed (the monorepo's own history suffices).
+    - **Scenario C — single blended repo.** One repo, one stack (or tightly intertwined stacks). The forge workspace **is the repo**. `docs/features/` and `.aiforging/` both live at the root. Simplest case.
+    - **Scenario D — single-purpose repo.** Just a backend or just a frontend. Same as Scenario C.
+    - **Detection**: `/aiforging:setup` begins with a scenario interview: "How is your codebase organized?" For multi-repo, it asks whether the user already has a repo where centralized planning docs live (use it) or wants to create one (Phase A). For monorepo/single, it operates in-repo. The workspace marker is the presence of `docs/features/README.md` with the AI Forging marker string — no new config file needed (same detection the current Phase A already uses, now applied to repos too).
+    - **Three-layer model update**: the three layers are still conceptually distinct (plugin source ≠ workspace ≠ target), but for scenarios B/C/D, the workspace and target layers **collapse into one physical location**. The plugin source is always separate (marketplace install).
+
+22. **Two-tier pattern library with stack-level matching.** Patterns and anti-patterns exist at two tiers:
+    - **Shared tier** — lives at the workspace level. For separate workspaces: `<workspace>/.aiforging/patterns/` and `<workspace>/.aiforging/anti-patterns/`. For in-repo workspaces (monorepo/single): `<repo>/.aiforging/patterns/` and `<repo>/.aiforging/anti-patterns/` at the root level. Shared patterns have YAML frontmatter with an `applies-to` list of stack identifiers (using the vocabulary `detect-project.py` already outputs: `symfony-php`, `laravel-php`, `react`, `next`, `angular`, `node-ts`, `doctrine`, `eloquent`, `typeorm`, etc.) plus the special value `all` for universal patterns. `/hammer-refactor` reads the shared tier and filters by the current target's detected stack before dispatching subagents.
+    - **Target-local tier** — lives in each target's `.aiforging/patterns/` and `.aiforging/anti-patterns/` (for multi-repo) or each sub-project's `.aiforging/patterns/` (for monorepo). Target-local patterns have NO `applies-to` frontmatter — they apply unconditionally to that target. Use this tier for repo-specific patterns that genuinely only apply to one target (e.g., "this legacy repo uses X weird pattern because of Y historical debt").
+    - **`/hammer-refactor` reads both tiers.** For a given target, it merges: (a) all target-local patterns from `<target>/.aiforging/patterns/` + `<target>/.aiforging/anti-patterns/`, and (b) all shared patterns from the workspace whose `applies-to` list includes at least one of the target's detected stacks (or `all`). The merged set is what gets dispatched to subagents. Duplicate detection is by filename — if a shared pattern and a target-local pattern have the same filename, the target-local copy wins (allows per-target overrides).
+    - **`/capture-pattern` asks the scope question.** After drafting a pattern, the skill asks: "Does this apply only to `<current-target>`, or to all `<stack-family>` targets?" If shared → writes to the workspace-level shared tier with `applies-to` frontmatter. If local → writes to the target's own `.aiforging/patterns/`. For in-repo workspaces where workspace = target, both tiers are in the same repo but at different directory levels: root `.aiforging/patterns/` (shared) vs sub-project `.aiforging/patterns/` (local).
+    - **Seeded patterns move to the shared tier.** The initial seeded patterns (`fat-controller.md`, `primitive-obsession.md`, `extract-service-from-controller.md`) currently get copied into each target's `.aiforging/` during Phase B. Under the two-tier model, these are shared patterns — they apply to all targets of the right stack. They should be seeded at the workspace level (shared tier) with `applies-to` frontmatter, not duplicated into each target. Phase B still creates the target-local `patterns/` and `anti-patterns/` directories (empty, for future captures), but the seeded content goes to the workspace.
+    - **Pattern file format change.** Shared-tier patterns gain a YAML frontmatter block:
+      ```yaml
+      ---
+      applies-to: [symfony-php, doctrine]
+      captured-from: hub-plus-api
+      captured-date: 2026-04-13
+      ---
+      ```
+      Target-local patterns have no frontmatter (or optionally `captured-from` and `captured-date` for provenance). The `## Source` section at the bottom of the file body is preserved for human-readable attribution; the frontmatter is for machine filtering.
+
+23. **Monorepo sub-project detection with user confirmation.** For monorepo scenarios, `/aiforging:setup` runs `detect-project.py` against the root AND against each detected child (it already recurses one level for meta-repos). It presents the results as a confirmation: "I detected the following sub-projects — `frontend/` (react, playwright), `backend/` (symfony-php, doctrine, phpunit). Is this correct?" The user can correct misdetections, add missed sub-projects, or relabel roles. Each confirmed sub-project is treated as a target for convention installation (gets its own `<sub-project>/.aiforging/`) but does NOT get added to `additionalDirectories` (it's already under the same root). This extends the existing `detect-project.py` child-recursion — the script already outputs a `children` array for meta-repos.
+
 ## Target Plugin Layout
 
 ```
@@ -92,7 +118,7 @@ aiforging/                          # plugin source repo (where we are)
         └── playwright-conventions.md
 ```
 
-### Forge workspace layout (created by `/aiforging:setup` phase A)
+### Forge workspace layout — Scenario A: separate workspace (multi-repo)
 
 ```
 <forge-workspace>/                  # e.g., ~/forge — user-chosen location; intended to become a git repo
@@ -101,32 +127,80 @@ aiforging/                          # plugin source repo (where we are)
 ├── .gitignore                      # Protects settings.local.json + helper-script backups
 ├── .claude/
 │   ├── settings.json               # COMMITTED: enabledPlugins only (superpowers + aiforging)
-│   └── settings.local.json         # GITIGNORED: permissions.additionalDirectories (per-user)
+│   ├── settings.local.json         # GITIGNORED: permissions.additionalDirectories (per-user)
+│   └── skills/
+│       └── capture-pattern/
+│           └── SKILL.md            # workspace copy — resolves targets from settings.local.json
+├── .aiforging/
+│   ├── patterns/                   # SHARED TIER — applies-to frontmatter, stack-filtered
+│   │   └── extract-service-from-controller.md   # seeded during Phase A
+│   └── anti-patterns/              # SHARED TIER
+│       ├── fat-controller.md       # seeded during Phase A
+│       └── primitive-obsession.md  # seeded during Phase A
 └── docs/
     └── features/
         ├── README.md               # explains the feature-folder convention
         └── <feature-name>/         # one directory per active feature (grows over time)
-            ├── spec.md             # WHAT we're building and WHY (superpowers spec format)
-            └── plan.md             # HOW, with subagent-friendly chunks (superpowers plan format)
+            ├── spec.md
+            └── plan.md
 ```
 
-### Target repo layout (after `/aiforging:setup` phase B onboards it)
+### Forge workspace layout — Scenario B: in-repo workspace (monorepo)
+
+```
+<monorepo>/                         # the repo IS the workspace
+├── CLAUDE.md                       # workspace + repo context merged
+├── .claude/
+│   ├── settings.json               # COMMITTED: enabledPlugins
+│   └── skills/
+│       └── capture-pattern/
+│           └── SKILL.md
+├── .aiforging/
+│   ├── patterns/                   # SHARED TIER — cross-sub-project patterns
+│   └── anti-patterns/              # SHARED TIER
+├── docs/
+│   └── features/                   # feature specs/plans live at the repo root
+│       └── <feature-name>/
+│           ├── spec.md
+│           └── plan.md
+├── backend/                        # detected sub-project
+│   ├── .aiforging/
+│   │   ├── CLAUDE.md               # sub-project conventions pointer
+│   │   ├── architecture/           # stack-specific conventions
+│   │   ├── tdd/
+│   │   ├── patterns/               # TARGET-LOCAL TIER — backend-specific overrides
+│   │   └── anti-patterns/          # TARGET-LOCAL TIER
+│   └── (backend source code)
+└── frontend/                       # detected sub-project
+    ├── .aiforging/
+    │   ├── CLAUDE.md
+    │   ├── patterns/               # TARGET-LOCAL TIER — frontend-specific overrides
+    │   └── anti-patterns/          # TARGET-LOCAL TIER
+    └── (frontend source code)
+```
+
+### Target repo layout — Scenario A only (after `/aiforging:setup` phase B onboards it)
 
 ```
 <target-repo>/
 ├── .claude/
 │   └── skills/
-│       └── hammer-refactor/
-│           └── SKILL.md            # copy of the skill; discoverable by anyone cloning this repo
+│       ├── hammer-refactor/
+│       │   └── SKILL.md            # copy of the skill; discoverable by anyone cloning this repo
+│       └── capture-pattern/
+│           └── SKILL.md            # copy of the skill; fires during direct-in-repo sessions
 ├── .aiforging/
 │   ├── CLAUDE.md                   # "This repo is onboarded to AI Forging; look in .aiforging/"
 │   ├── ANALYSIS.md                 # from architecture-analyzer, regenerated on rerun
 │   ├── architecture/               # copied from plugin conventions/architecture/
 │   ├── tdd/                        # copied from plugin conventions/tdd/
-│   ├── patterns/                   # seeded from plugin conventions/refactoring/patterns/; grows over time
-│   └── anti-patterns/              # seeded from plugin conventions/refactoring/anti-patterns/; grows over time
+│   ├── subagent-orchestration/     # copied from plugin conventions/subagent-orchestration/
+│   ├── patterns/                   # TARGET-LOCAL TIER — repo-specific only; starts empty
+│   └── anti-patterns/              # TARGET-LOCAL TIER — repo-specific only; starts empty
 └── (existing project code — untouched except for the additions above)
 ```
+
+**Key difference from pre-Decision-22 layout:** seeded patterns (`fat-controller.md`, etc.) NO LONGER live in each target repo. They live in the shared tier at the workspace level. Target-local `patterns/` and `anti-patterns/` directories start empty and are only for repo-specific captures. `/hammer-refactor` merges both tiers when scanning a target.
 
 ## Current Status
 
