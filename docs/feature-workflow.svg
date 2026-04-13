@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 950" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <defs>
+    <linearGradient id="fire" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+    <linearGradient id="hammer" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="temper" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#14b8a6"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+    <linearGradient id="human" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="720" height="950" rx="16" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="360" y="44" text-anchor="middle" font-size="20" font-weight="700" fill="#111827">Building a Feature with AI Forging</text>
+  <text x="360" y="66" text-anchor="middle" font-size="12" fill="#6b7280">Human decisions in gold. AI work in color. Every stage has a gate.</text>
+
+  <!-- Legend -->
+  <rect x="170" y="80" width="14" height="14" rx="3" fill="url(#human)"/>
+  <text x="190" y="92" font-size="11" fill="#6b7280">Human decision</text>
+  <rect x="310" y="80" width="14" height="14" rx="3" fill="url(#fire)"/>
+  <text x="330" y="92" font-size="11" fill="#6b7280">Fire (TDD)</text>
+  <rect x="420" y="80" width="14" height="14" rx="3" fill="url(#hammer)"/>
+  <text x="440" y="92" font-size="11" fill="#6b7280">Hammer</text>
+  <rect x="520" y="80" width="14" height="14" rx="3" fill="url(#temper)"/>
+  <text x="540" y="92" font-size="11" fill="#6b7280">Tempering</text>
+
+  <!-- ==================== STEP 1: Kick off ==================== -->
+  <!-- Human gate -->
+  <rect x="60" y="115" width="600" height="56" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="60" y="115" width="6" height="56" rx="3" fill="url(#human)"/>
+  <text x="88" y="140" font-size="14" font-weight="600" fill="#92400e">/aiforging:forge my-feature "what I want to build"</text>
+  <text x="88" y="158" font-size="11.5" fill="#78716c">You name it, describe it, pick the shape. AI scaffolds the feature folder.</text>
+
+  <!-- Arrow -->
+  <line x1="360" y1="171" x2="360" y2="191" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="354,188 360,196 366,188" fill="#d1d5db"/>
+
+  <!-- ==================== STEP 2: Spec + Plan ==================== -->
+  <rect x="60" y="196" width="600" height="74" rx="10" fill="#fff" stroke="#e5e7eb" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="60" y="196" width="6" height="74" rx="3" fill="#9ca3af"/>
+  <text x="88" y="220" font-size="13" font-weight="600" fill="#374151">Spec + Plan</text>
+  <text x="88" y="238" font-size="11.5" fill="#6b7280">AI walks you through scope, architecture review, and generates a plan</text>
+  <text x="88" y="254" font-size="11.5" fill="#6b7280">with slices — each slice is one unit of work for a fresh-context subagent.</text>
+
+  <!-- Arrow -->
+  <line x1="360" y1="270" x2="360" y2="290" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="354,287 360,295 366,287" fill="#d1d5db"/>
+
+  <!-- ==================== STEP 3: Human approves plan ==================== -->
+  <rect x="60" y="295" width="600" height="48" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="60" y="295" width="6" height="48" rx="3" fill="url(#human)"/>
+  <text x="88" y="317" font-size="13" font-weight="600" fill="#92400e">Gate: Review &amp; approve the plan</text>
+  <text x="88" y="333" font-size="11.5" fill="#78716c">Nothing executes until you say go. Adjust scope, reorder slices, reject anything.</text>
+
+  <!-- Arrow -->
+  <line x1="360" y1="343" x2="360" y2="363" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="354,360 360,368 366,360" fill="#d1d5db"/>
+
+  <!-- ==================== FIRE STAGE ==================== -->
+  <rect x="40" y="368" width="640" height="202" rx="12" fill="#fff5f5" stroke="#fecaca" stroke-width="1"/>
+  <text x="64" y="392" font-size="15" font-weight="700" fill="#dc2626">FIRE</text>
+  <text x="116" y="392" font-size="12" fill="#9ca3af">Test-Driven Development</text>
+
+  <!-- TDD loop -->
+  <rect x="70" y="404" width="580" height="64" rx="8" fill="#fff" stroke="#fca5a5" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="70" y="404" width="5" height="64" rx="2.5" fill="url(#fire)"/>
+  <text x="94" y="424" font-size="12.5" font-weight="600" fill="#991b1b">Red → Green → Refactor</text>
+  <text x="94" y="441" font-size="11.5" fill="#6b7280">AI writes failing tests first, then implementation. Per slice from the plan.</text>
+  <text x="94" y="457" font-size="11.5" fill="#6b7280">A dedicated test suite for this feature is built up slice by slice — the safety net for everything after.</text>
+
+  <!-- Arrow inside fire -->
+  <line x1="360" y1="468" x2="360" y2="484" stroke="#fca5a5" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="354,481 360,489 366,481" fill="#fca5a5"/>
+
+  <!-- Human gate: test review -->
+  <rect x="70" y="488" width="580" height="48" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="70" y="488" width="5" height="48" rx="2.5" fill="url(#human)"/>
+  <text x="94" y="510" font-size="12.5" font-weight="600" fill="#92400e">Gate: Review tests &amp; implementation</text>
+  <text x="94" y="526" font-size="11.5" fill="#78716c">You verify the tests capture intent. Corrections here can trigger Tempering.</text>
+
+  <!-- Repeat note -->
+  <text x="640" y="557" text-anchor="end" font-size="10.5" font-style="italic" fill="#9ca3af">repeats per slice</text>
+
+  <!-- Arrow from Fire to Hammer -->
+  <line x1="360" y1="570" x2="360" y2="590" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="354,587 360,595 366,587" fill="#d1d5db"/>
+
+  <!-- ==================== HAMMER STAGE ==================== -->
+  <rect x="40" y="595" width="640" height="148" rx="12" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
+  <text x="64" y="619" font-size="15" font-weight="700" fill="#7c3aed">HAMMER</text>
+  <text x="142" y="619" font-size="12" fill="#9ca3af">Auto-triggers after each TDD cycle</text>
+
+  <rect x="70" y="631" width="580" height="64" rx="8" fill="#fff" stroke="#c4b5fd" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="70" y="631" width="5" height="64" rx="2.5" fill="url(#hammer)"/>
+  <text x="94" y="651" font-size="12.5" font-weight="600" fill="#5b21b6">Pattern-driven refactoring</text>
+  <text x="94" y="668" font-size="11.5" fill="#6b7280">One subagent per pattern, parallel, fresh context. Merges shared + local tiers.</text>
+  <text x="94" y="684" font-size="11.5" fill="#6b7280">Feature test suite re-runs after every proposal — refactors that break tests are rejected.</text>
+
+  <!-- Human gate -->
+  <rect x="70" y="704" width="580" height="28" rx="6" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
+  <rect x="70" y="704" width="5" height="28" rx="2.5" fill="url(#human)"/>
+  <text x="94" y="723" font-size="12" font-weight="600" fill="#92400e">Gate: Accept or reject each refactor proposal</text>
+
+  <!-- Arrow from Hammer to Tempering -->
+  <line x1="360" y1="743" x2="360" y2="763" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="354,760 360,768 366,760" fill="#d1d5db"/>
+
+  <!-- ==================== TEMPERING STAGE ==================== -->
+  <rect x="40" y="768" width="640" height="110" rx="12" fill="#f0fdfa" stroke="#99f6e4" stroke-width="1"/>
+  <text x="64" y="792" font-size="15" font-weight="700" fill="#0d9488">TEMPERING</text>
+  <text x="160" y="792" font-size="12" fill="#9ca3af">Ongoing — fires during any code review</text>
+
+  <rect x="70" y="806" width="580" height="60" rx="8" fill="#fff" stroke="#5eead4" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="70" y="806" width="5" height="60" rx="2.5" fill="url(#temper)"/>
+  <text x="94" y="828" font-size="12.5" font-weight="600" fill="#115e59">Capture-pattern activates on corrections</text>
+  <text x="94" y="845" font-size="11.5" fill="#6b7280">You correct the AI, it offers to save the lesson. One file per pattern.</text>
+  <text x="94" y="860" font-size="11.5" fill="#6b7280">Shared tier (all same-stack targets) or target-local — your choice each time.</text>
+
+  <!-- ==================== BOTTOM: outcome ==================== -->
+  <line x1="360" y1="878" x2="360" y2="898" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="354,895 360,903 366,895" fill="#d1d5db"/>
+
+  <rect x="160" y="903" width="400" height="30" rx="8" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+  <text x="360" y="923" text-anchor="middle" font-size="12.5" font-weight="600" fill="#166534">Feature shipped. Codebase stronger. Pattern library grown.</text>
+</svg>

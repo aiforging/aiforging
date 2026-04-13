@@ -10,6 +10,10 @@ AI Forging is a counterpoint to "vibe coding." The thesis: AI is incredibly powe
 
 Each iteration through the cycle leaves the codebase stronger than it started.
 
+<p align="center">
+  <img src="docs/feature-workflow.svg" alt="Building a Feature with AI Forging — workflow diagram showing Fire, Hammer, and Tempering stages with human gates" width="680"/>
+</p>
+
 ## Day-to-day usage
 
 Once your workspace and targets are set up, these are the commands you'll reach for:
