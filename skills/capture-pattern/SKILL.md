@@ -38,17 +38,19 @@ This skill is **the Tempering pillar made operational**. The Fire stage (TDD) pr
 
 When you detect a corrective moment, ask concisely:
 
-> "Would you like me to capture this as a [pattern / anti-pattern] for the `hammer-refactor` library? It would live at `<target>/.aiforging/{patterns|anti-patterns}/<name>.md` and be picked up on every subsequent Hammer pass."
+> "Would you like me to capture this as a [pattern / anti-pattern] for the `hammer-refactor` library? I'll ask whether it should be shared across all same-stack targets or kept specific to this repo."
 
 If the correction is clearly about what NOT to do, say "anti-pattern." If it's about the right way to do something, say "pattern." If ambiguous, ask which.
 
 If the human declines, drop it. Do not re-ask for the same correction in the same session.
 
-### Step 2 — Resolve the target library
+### Step 2 — Resolve the workspace, target, and writing tier
 
-This skill is installed in two places: inside each onboarded target repo (at `<target>/.claude/skills/capture-pattern/SKILL.md`) AND inside the forge workspace (at `<workspace>/.claude/skills/capture-pattern/SKILL.md`). The writing destination depends on where the session is running.
+This skill is installed in target repos AND in the forge workspace (or at the repo root for in-repo workspaces). The writing destination depends on where the session is running AND the tier the user selects.
 
-**Case A — session is running inside a target repo.**
+**First, resolve the workspace and target:**
+
+**Case A — session is running inside a target repo (multi-repo setup).**
 
 Detect with:
 
@@ -56,9 +58,19 @@ Detect with:
 test -d ./.aiforging/patterns && test -d ./.aiforging/anti-patterns && echo "IN_TARGET_REPO"
 ```
 
-If both directories exist, the cwd is the target. Write to `./.aiforging/patterns/<name>.md` or `./.aiforging/anti-patterns/<name>.md`. No picker needed.
+The cwd is the target. The forge workspace is found by checking `~/.claude/aiforging.json` for `active_workspace`. If the pointer doesn't resolve, the shared tier is unavailable — captures can only go to the target-local tier. Note this limitation to the user.
 
-**Case B — session is running inside a forge workspace.**
+**Case B — session is running inside a monorepo / single-repo workspace (in-repo workspace).**
+
+Detect with:
+
+```bash
+test -f ./docs/features/README.md && head -c 500 ./docs/features/README.md | grep -q "Feature Folder Convention" && echo "IN_REPO_WORKSPACE"
+```
+
+The workspace IS the repo root. If the repo has sub-projects with their own `.aiforging/`, determine which sub-project the correction applies to (from the file being discussed in the session). The shared tier is `<repo-root>/.aiforging/patterns/` or `.aiforging/anti-patterns/`. The target-local tier is `<sub-project>/.aiforging/patterns/` or `.aiforging/anti-patterns/`.
+
+**Case C — session is running inside a separate forge workspace (multi-repo setup).**
 
 Detect with:
 
@@ -67,26 +79,35 @@ test -f ./CLAUDE.md && head -c 500 ./CLAUDE.md | grep -q "AI Forging workspace" 
   test -f ./.claude/settings.local.json && echo "IN_FORGE_WORKSPACE"
 ```
 
-If the cwd is a workspace, read the registered targets from `./.claude/settings.local.json` at `permissions.additionalDirectories`. Then:
+Read the registered targets from `./.claude/settings.local.json` at `permissions.additionalDirectories`. Then:
 
 - **Zero targets registered** → tell the human: "This workspace has no target repos registered yet. Run `/aiforging:setup` from the workspace to onboard a target before capturing patterns." Stop.
-- **Exactly one target registered** → use it. Confirm with the human: "I'll save this pattern to `<that-target>/.aiforging/{patterns|anti-patterns}/<name>.md`. OK?"
-- **Multiple targets registered** → ask the human to pick: "Which target repo does this pattern apply to? [list the targets from settings.local.json]". Do NOT guess from the current conversation — the human might be thinking about a repo other than the one whose code was on screen when the correction happened.
+- **Exactly one target registered** → use it. Confirm with the human.
+- **Multiple targets registered** → ask the human to pick: "Which target repo does this pattern apply to?" Do NOT guess from the current conversation.
 
-**Case C — neither a target repo nor a forge workspace.**
+The shared tier for Case C is `<workspace>/.aiforging/patterns/` or `.aiforging/anti-patterns/`.
+
+**Case D — neither a target repo nor a forge workspace.**
 
 Tell the human: "I can only capture patterns from inside a target repo or an AI Forging workspace, and neither looks like the case here. Are you in the right directory?" Stop.
 
-### Step 3 — Check for duplicates
+**Second, detect the target's stack** (needed for shared-tier frontmatter). Run `detect-project.py` against the resolved target, or read cached stack info from `<target>/.aiforging/ANALYSIS.md` if present. Record the stack identifiers (e.g., `symfony-php`, `doctrine`).
 
-Before drafting anything, scan the resolved target's existing library:
+### Step 3 — Check for duplicates across both tiers
+
+Before drafting anything, scan BOTH the shared tier and the target-local tier for existing patterns:
 
 ```bash
-ls <target>/.aiforging/patterns/
-ls <target>/.aiforging/anti-patterns/
+# Shared tier (workspace level)
+ls <workspace>/.aiforging/patterns/ 2>/dev/null
+ls <workspace>/.aiforging/anti-patterns/ 2>/dev/null
+
+# Target-local tier
+ls <target>/.aiforging/patterns/ 2>/dev/null
+ls <target>/.aiforging/anti-patterns/ 2>/dev/null
 ```
 
-Read any file whose name or topic might overlap. If an existing file covers the same ground:
+Read any file whose name or topic might overlap. If an existing file covers the same ground (in either tier):
 
 - Offer to **update** the existing file instead of creating a new one.
 - Show the human the existing file's `## Rule` and `## Detect` sections and ask: "This seems to overlap with `<existing-file>`. Should I extend that file or create a new one?"
@@ -214,9 +235,37 @@ Fill in the template from the actual correction you and the human just worked th
 
 **Stack-specific language in Before/After.** Use whatever language the target is written in — `php`, `typescript`, `python`, `csharp`, etc. Detect from the current session's file extensions. The hub-plus-api and certainpath-web backends are PHP; other targets may differ.
 
+### Step 4.5 — Tier selection (shared vs target-local)
+
+After the draft is ready, ask the user which tier to write to. This is the key decision for the two-tier pattern library:
+
+> "Does this pattern apply only to `<current-target>` (target-local), or to all `<stack-family>` targets (shared)?"
+
+Explain the difference concisely:
+- **Target-local**: lives in `<target>/.aiforging/{patterns|anti-patterns}/`, applies only to this repo. Use for repo-specific rules.
+- **Shared**: lives in `<workspace>/.aiforging/{patterns|anti-patterns}/` with `applies-to` frontmatter, applies to all targets with matching stacks. Use for rules that should be enforced everywhere.
+
+**Default recommendation**: shared. Most patterns captured from real corrections are generalizable. If the user is unsure, suggest shared — it's easy to narrow later, harder to remember to propagate.
+
+**If shared**, prepend the YAML frontmatter to the draft:
+
+```yaml
+---
+applies-to: [<detected-stack-identifiers>]
+captured-from: <target-name>
+captured-date: <YYYY-MM-DD>
+---
+```
+
+The `applies-to` list defaults to the current target's detected stacks, but the user can broaden it (e.g., from `[symfony-php]` to `[symfony-php, laravel-php]`) or narrow it. Offer to adjust.
+
+**If target-local**, no frontmatter is needed. Optionally add `captured-from` and `captured-date` for provenance.
+
+**If the workspace is unavailable** (Case A in Step 2 where the pointer file doesn't resolve), only target-local is available. Inform the user: "I can't locate your forge workspace, so this pattern will be saved to the target-local tier only. To enable shared patterns, set up the workspace pointer with `/aiforging:setup`."
+
 ### Step 5 — Present for approval
 
-Show the human the full draft before writing. Ask:
+Show the human the full draft (including frontmatter if shared tier) before writing. Ask:
 
 > "Here's the draft. Save it to `<target>/.aiforging/{patterns|anti-patterns}/<kebab-case-name>.md`?"
 
@@ -224,15 +273,24 @@ Do NOT write the file until the human approves. If they want edits, take them an
 
 ### Step 6 — Write the file
 
-On approval, create the file. If the file already exists (the duplicate check in Step 3 missed something), stop and ask again — never overwrite silently.
+On approval, create the file at the tier selected in Step 4.5. If the file already exists (the duplicate check in Step 3 missed something), stop and ask again — never overwrite silently.
+
+**Shared tier destination:**
 
 ```bash
-# Ensure the directory exists (should, but be safe).
+# Write to workspace-level shared pattern library
+mkdir -p <workspace>/.aiforging/patterns
+mkdir -p <workspace>/.aiforging/anti-patterns
+# Write the file (with frontmatter) using the Write tool.
+```
+
+**Target-local tier destination:**
+
+```bash
+# Write to target-specific pattern library
 mkdir -p <target>/.aiforging/patterns
 mkdir -p <target>/.aiforging/anti-patterns
-
-# Write the file using the Write tool, not shell redirection.
-# (Write tool handles atomic writes and avoids quoting headaches.)
+# Write the file (without frontmatter, or with optional provenance) using the Write tool.
 ```
 
 ### Step 7 — Cross-link
@@ -268,13 +326,13 @@ Do NOT offer to capture a pattern/anti-pattern when:
 
 Files created by this skill are consumed by:
 
-- **`hammer-refactor` skill** (installed at `<target>/.claude/skills/hammer-refactor/SKILL.md` during Phase B onboarding). It globs `<target>/.aiforging/patterns/` and `<target>/.aiforging/anti-patterns/` on every run and dispatches one subagent per file, so newly captured rules participate in the next Hammer pass with no additional wiring.
-- **Manual code review.** Team members can browse `<target>/.aiforging/patterns/` and `<target>/.aiforging/anti-patterns/` as a living style guide for the target repo.
-- **Cross-repo knowledge transfer.** When a captured pattern turns out to be generalizable across targets, a future `/aiforging:propose-pattern` command will let teams promote it from a single target's `.aiforging/` into the plugin's `conventions/refactoring/` library so all future onboarded targets start with it. That upstream flow is not yet built; for now, promote via manual PR against the aiforging plugin source if you want a pattern to spread.
+- **`hammer-refactor` skill** (installed at `<target>/.claude/skills/hammer-refactor/SKILL.md` during onboarding). It merges both the shared tier (workspace-level) and the target-local tier on every run, filters shared patterns by the target's detected stack, and dispatches one subagent per file. Newly captured rules — whether shared or local — participate in the next Hammer pass with no additional wiring.
+- **Manual code review.** Team members can browse both `<workspace>/.aiforging/patterns/` (shared) and `<target>/.aiforging/patterns/` (local) as a living style guide. The shared tier is especially useful as a cross-project architectural reference.
+- **Cross-repo knowledge transfer.** The two-tier model handles this natively: capturing to the shared tier immediately makes the pattern available to all same-stack targets. No manual propagation step needed. If a pattern was initially captured to the target-local tier and turns out to be generalizable, move it to the shared tier with appropriate `applies-to` frontmatter.
 
 ## Hard rules
 
-- **Never write outside the resolved target's `.aiforging/patterns/` or `.aiforging/anti-patterns/` directory.** If the resolution logic in Step 2 fails, stop — do not fall back to some other location.
+- **Never write outside the resolved tier's `.aiforging/patterns/` or `.aiforging/anti-patterns/` directory.** Shared-tier writes go to the workspace's `.aiforging/`. Target-local writes go to the target's `.aiforging/`. If the resolution logic in Step 2 fails, stop — do not fall back to some other location.
 - **Never overwrite an existing file silently.** Duplicate check in Step 3, confirmation in Step 5, overwrite-check in Step 6.
 - **Never inline patterns into existing files "as new sections."** One pattern, one file. This is the scalable-quality principle.
 - **Never chain the capture into a Hammer pass.** Capture is read-only with respect to the target's source code. Running Hammer is a separate, explicit command.
