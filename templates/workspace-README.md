@@ -17,6 +17,9 @@ This directory is an **AI Forging workspace** — a central orchestration hub fo
 │   └── skills/
 │       └── capture-pattern/
 │           └── SKILL.md                   # Tempering feedback loop (see below)
+├── .aiforging/
+│   ├── patterns/                          # SHARED TIER — applies-to frontmatter, stack-filtered
+│   └── anti-patterns/                     # SHARED TIER — seeded patterns live here
 └── docs/
     └── features/
         ├── README.md                      # The feature-folder convention (read first)
@@ -60,9 +63,14 @@ If you installed either from a different marketplace (for example `superpowers@s
 
 `/aiforging:setup` installed a skill called `capture-pattern` at `.claude/skills/capture-pattern/SKILL.md` in this workspace. It is the operational mechanism for the **Tempering** pillar of the forge (the third pillar, after Fire and Hammer): capturing human code-review lessons back into the per-target pattern library so the Hammer pass enforces them on every subsequent feature.
 
-**How it works.** During any interactive session in this workspace (or inside one of your target repos — `/aiforging:setup` also installs a copy there), when you correct the AI's work in a way that encodes a reusable structural rule — "no, don't do it that way, always do X," "that's the wrong layer," "we never mix those concerns" — the skill detects the corrective moment and offers to persist the lesson as a new pattern or anti-pattern file. It asks which target the pattern applies to (reading your registered targets from `settings.local.json`), drafts the file using the AI Forging pattern format, shows you the draft, and writes it to `<target>/.aiforging/patterns/<name>.md` or `<target>/.aiforging/anti-patterns/<name>.md` only after you approve. The file name is kebab-case and the format is prescriptive — see the pattern library README in any onboarded target's `.aiforging/patterns/README.md`.
+**How it works.** During any interactive session in this workspace (or inside one of your target repos — `/aiforging:setup` also installs a copy there), when you correct the AI's work in a way that encodes a reusable structural rule — "no, don't do it that way, always do X," "that's the wrong layer," "we never mix those concerns" — the skill detects the corrective moment and offers to persist the lesson as a new pattern or anti-pattern file. It asks:
 
-**Why this is the whole framework's point.** Each captured pattern is ONE `.md` file, and the next `hammer-refactor` run on the same target automatically picks it up — no wiring, no central document to update, no rebuild. Adding the 50th pattern costs the same as the 5th because each pattern gets its own fresh-context subagent during the Hammer pass. Every team member contributes just by doing normal code reviews. Quality compounds.
+1. Which target the correction was observed in (if running from the workspace with multiple targets).
+2. **The tier question**: "Does this apply only to `<target>`, or to all same-stack targets?" If shared → writes to the workspace's `.aiforging/patterns/` or `.aiforging/anti-patterns/` with `applies-to` frontmatter (stack identifiers). If target-local → writes to the target's own `.aiforging/patterns/` or `.aiforging/anti-patterns/`.
+
+The file name is kebab-case and the format is prescriptive — see `conventions/refactoring/README.md` in the plugin source for the full two-tier documentation.
+
+**Why this is the whole framework's point.** Each captured pattern is ONE `.md` file. Shared-tier captures are immediately available to ALL same-stack targets — no manual propagation step needed. Adding the 50th pattern costs the same as the 5th because each pattern gets its own fresh-context subagent during the Hammer pass. Every team member contributes just by doing normal code reviews. Quality compounds.
 
 **The skill is reactive, not proactive** — it only fires when a corrective moment happens, and it biases heavily toward NOT prompting to avoid training you to reflexively decline. If it's firing too often, tell it to back off and give specific guidance on what kinds of corrections should and shouldn't trigger it; update the skill file's "Over-prompting guard" section in both locations.
 
@@ -74,6 +82,7 @@ This workspace is designed to be a git repo. Specs, plans, and the accumulated f
 
 - `CLAUDE.md`, `README.md`, `.gitignore`
 - `docs/features/**` (specs, plans, notes for every feature — this is the valuable part)
+- `.aiforging/patterns/**` and `.aiforging/anti-patterns/**` (the shared-tier pattern library — seeded patterns plus team captures)
 - `.claude/settings.json` (the `enabledPlugins` block — shared with teammates)
 - `.claude/skills/capture-pattern/SKILL.md` (the Tempering feedback-loop skill, shared with teammates so every clone of the workspace behaves the same way when corrective moments occur)
 
@@ -100,7 +109,7 @@ The teammate then runs `/aiforging:setup` in the cloned workspace. Phase detecti
 3. **Plan it.** Run the plan phase of `superpowers:writing-plans` to produce `plan.md` in the AI Forging slice format (see `docs/features/README.md`).
 4. **Execute Fire.** Walk the `[fire]` slices with `superpowers:executing-plans` + `test-driven-development`. Result: green tests.
 5. **Execute Hammer.** Invoke `aiforging:hammer-refactor` on the target repo(s). Result: code shaped toward the prescribed architecture, tests still green.
-6. **Temper.** When you correct the AI during code review and the correction encodes a reusable rule, the `capture-pattern` skill will offer to persist it as a new `.md` file in the relevant target repo's `.aiforging/patterns/` or `.aiforging/anti-patterns/` library. The next Hammer pass picks it up automatically. See "The Tempering feedback loop" section above.
+6. **Temper.** When you correct the AI during code review and the correction encodes a reusable rule, the `capture-pattern` skill will offer to persist it. It asks whether the pattern should be shared (workspace `.aiforging/`, available to all same-stack targets) or target-local (target's `.aiforging/`, this repo only). See "The Tempering feedback loop" section above.
 7. **Commit the feature history.** When the feature is done, `git add docs/features/<name>/ && git commit` so the spec, plan, and any notes become part of the workspace's permanent record.
 
 ## Adding a new target repo

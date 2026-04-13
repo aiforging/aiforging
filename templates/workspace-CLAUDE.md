@@ -29,34 +29,45 @@ This workspace uses Claude Code's native two-file settings convention. Both file
 
 **When working in this workspace, do NOT edit either settings file by hand.** Use the aiforging helper scripts: `configure-plugins.py` for `settings.json`, `configure-directories.py` for `settings.local.json`. If you find a config inconsistency (e.g., `additionalDirectories` sitting in `settings.json` from an old version), offer to migrate by moving the key to `settings.local.json` — never silently rewrite.
 
+## Two-tier pattern library
+
+The pattern library has two tiers that `hammer-refactor` merges on every run:
+
+**Shared tier** — lives in THIS workspace at `.aiforging/patterns/` and `.aiforging/anti-patterns/`. Shared patterns have YAML frontmatter with an `applies-to` list of stack identifiers (e.g., `symfony-php`, `react`, `doctrine`, or `all`). When `hammer-refactor` runs against a target, it reads the shared tier and includes only patterns whose `applies-to` matches the target's detected stack. Seeded patterns (shipped with the plugin) live here.
+
+**Target-local tier** — lives in each target repo's own `.aiforging/patterns/` and `.aiforging/anti-patterns/`. Target-local patterns have no `applies-to` frontmatter and apply unconditionally to that target. Use this tier for repo-specific rules. These directories start empty on onboarding.
+
+If both tiers contain a file with the same name, the target-local copy wins (allows per-target overrides).
+
 ## Target repos
 
 The repos this workspace is onboarded to are listed in `.claude/settings.local.json` under `permissions.additionalDirectories`. Each one has its own `.aiforging/` folder containing:
 
 - `ANALYSIS.md` — snapshot from `architecture-analyzer` (regenerated on rerun).
-- `architecture/`, `tdd/` — AI Forging conventions copied in during onboarding.
-- `patterns/` and `anti-patterns/` — the refactoring library, seeded on onboarding and grown via the Tempering stage.
+- `architecture/`, `tdd/`, `subagent-orchestration/` — AI Forging conventions copied in during onboarding.
+- `patterns/` and `anti-patterns/` — the target-local tier of the pattern library (starts empty; repo-specific captures go here).
 
 Additionally, candidate target repos have two AI Forging skills committed at `.claude/skills/` so that anyone cloning the target repo can use them independently of whether the aiforging plugin is installed on their machine:
 
-- **`hammer-refactor/SKILL.md`** — the executable Hammer stage.
+- **`hammer-refactor/SKILL.md`** — the executable Hammer stage. Reads both tiers when scanning.
 - **`capture-pattern/SKILL.md`** — the reactive Tempering feedback loop (see next section).
 
 Each target repo also has its own `.claude/settings.json` with an `enabledPlugins` block committed to its git history, so teammates who clone the target repo (without cloning this workspace) still get `superpowers` and `aiforging` auto-activated when they run Claude inside the target.
 
 ## Tempering feedback loop — capture-pattern
 
-This workspace also has `capture-pattern` installed at `.claude/skills/capture-pattern/SKILL.md`, which is the reactive mechanism for the Tempering pillar of the forge. When the human corrects your work during an interactive session in a way that encodes a reusable structural rule — "don't do it that way," "always do X," "never do Y," rejecting a diff with a structural reason — you should detect the corrective moment and follow the `capture-pattern` skill's instructions. The skill handles:
+This workspace has `capture-pattern` installed at `.claude/skills/capture-pattern/SKILL.md`, which is the reactive mechanism for the Tempering pillar. When the human corrects your work during an interactive session in a way that encodes a reusable structural rule — "don't do it that way," "always do X," "never do Y," rejecting a diff with a structural reason — detect the corrective moment and follow the `capture-pattern` skill's instructions. The skill handles:
 
 - Classifying the correction as pattern vs anti-pattern (or asking the human if ambiguous).
-- Resolving WHICH target repo's library to write to. When running in the workspace, read the registered targets from `settings.local.json` and ask the human which target the pattern applies to (do NOT guess from conversation context — the human may be thinking about a different repo than the one whose code was on screen).
-- Duplicate-checking the existing library before drafting.
+- Asking the **tier question**: "Does this apply only to `<target>`, or to all same-stack targets?" If shared → writes to the workspace's `.aiforging/` with `applies-to` frontmatter. If target-local → writes to the target's `.aiforging/`.
+- Resolving WHICH target the pattern was observed in (when running from the workspace with multiple registered targets).
+- Duplicate-checking across BOTH tiers before drafting.
 - Drafting the file in the AI Forging pattern format and showing it for approval before writing.
 - Cross-linking with any related pattern or anti-pattern already in the library.
 
 The skill biases toward NOT prompting — only offer capture when the correction clearly encodes a reusable, structural rule. An over-eager `capture-pattern` prompt trains the human to reflexively decline, which breaks the whole loop.
 
-Every captured pattern is ONE `.md` file. The next `hammer-refactor` run against the affected target automatically picks it up. This is how the pattern library grows over time without any central document to update — Scalable Quality by adding individual files, contributed by every team member as they work on every feature.
+Every captured pattern is ONE `.md` file. The next `hammer-refactor` run against any matching target automatically picks it up — shared-tier captures are immediately available to ALL same-stack targets with no propagation step.
 
 ## Working flow
 
@@ -66,8 +77,8 @@ For any feature you're asked to work on:
 2. **Plan.** Use `superpowers:writing-plans` to produce `plan.md` **in the AI Forging slice format** documented in `docs/features/README.md`. Each slice is tagged `[fire]`, `[hammer]`, or `[tempering]`, names its target repo, includes its test, and has an explicit subagent prompt.
 3. **Gates.** Any slice marked `[gate: architecture]`, `[gate: schema]`, or `[gate: contract]` must be explicitly approved by the user before it dispatches.
 4. **Execute Fire.** Use `superpowers:executing-plans` + `superpowers:test-driven-development` to walk the `[fire]` slices. Fire must produce a green test suite before any Hammer slice runs.
-5. **Execute Hammer.** Invoke `aiforging:hammer-refactor` on the target repo. The skill reads `plan.md`, scans the repo against `.aiforging/anti-patterns/`, and dispatches one subagent per approved slice. Human review after each slice.
-6. **Temper.** When the feature is done, any newly-discovered patterns or anti-patterns get written to the relevant target repo's `.aiforging/patterns/` or `.aiforging/anti-patterns/` as new `.md` files.
+5. **Execute Hammer.** Invoke `aiforging:hammer-refactor` on the target repo. The skill reads `plan.md`, merges patterns from both the workspace shared tier and the target-local tier (filtered by the target's stack), and dispatches one subagent per approved slice. Human review after each slice.
+6. **Temper.** When the feature is done, any newly-discovered patterns or anti-patterns get captured via `capture-pattern`. The skill asks whether each capture should be shared (workspace level) or target-local.
 
 ## Hard rules
 
