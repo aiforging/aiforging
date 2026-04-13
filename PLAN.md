@@ -465,14 +465,30 @@ Implementation:
 
 2. **Layer-split anti-pattern callout added to the feature convention** (this commit). During a day-to-day walkthrough in Session 4, I incorrectly used nested shape to split a cohesive backend+frontend feature (`tax-inclusive-pricing`) into repo-boundary work items (`01-backend-tax-model/` and `02-frontend-tax-display/`). Chris caught it: separate specs per repo let the API contract drift. The correct shape is FLAT — one spec, one plan, per-slice target-repo tags, `[gate: contract]` on the API-shape slice. Nested is only for sequential phases (e.g., dual-write migration → cutover). Added an explicit "When NOT to use nested — the layer-split anti-pattern" subsection to both `conventions/features/README.md` (canonical) and `templates/docs-features-README.md` (workspace template mirror).
 
-**Commits this session:**
+**Then, continuing in the same session after resuming from context loss:**
+
+3. **Closed both propagation gaps from Session 4** (`ae52eab`). Phase B Step B.4 now copies `conventions/subagent-orchestration/` into `<target>/.aiforging/subagent-orchestration/` alongside `architecture/` and `tdd/`. The target-repo `CLAUDE.md.template` now includes a "Subagent orchestration, in short" section referencing `.aiforging/subagent-orchestration/README.md`, and the "Updating this file" footer lists `subagent-orchestration` as part of the conventions library.
+
+4. **MIT LICENSE added** (`1778745`). Standard MIT license, copyright 2026 Chris Holland. Matches `license: "MIT"` in `plugin.json`.
+
+5. **Dogfood verification (script-level).** Can't run `claude --plugin-dir` from inside Cowork, but smoke-tested all four helper scripts end-to-end against scratch files:
+   - `configure-plugins.py enable` → creates `enabledPlugins` in settings.json, no cross-contamination with local file.
+   - `configure-directories.py add` → creates `additionalDirectories` in settings.local.json, no cross-contamination with committed file.
+   - `configure-workspace-pointer.py set-active` → writes pointer file independently of both settings files.
+   - Simulated Phase B Step B.4 copy: `architecture/` (5 files), `tdd/` (3 files), `subagent-orchestration/` (1 file) all land correctly in `<target>/.aiforging/`. The installed `CLAUDE.md` references `subagent-orchestration` in 2 places.
+   - **Still needed:** a real `claude --plugin-dir ~/projects/aiforging` dogfood run from a fresh empty directory to exercise the full Phase A → Phase B → `/aiforging:new-feature` flow interactively. This is the one verification that requires a Claude Code terminal session, not Cowork.
+
+**Commits this session (in order):**
 
 1. `51a260c` — `commands: add /aiforging:forge as thin pointer alias for /aiforging:new-feature`
-2. This commit — `conventions/features: add layer-split anti-pattern callout for nested shape`
+2. `0d4be5c` — `conventions/features: add layer-split anti-pattern callout for nested shape`
+3. `ae52eab` — `setup + template: close two propagation gaps from Session 4`
+4. `1778745` — `Add MIT license`
+5. This commit — `PLAN.md: Session 5 log`
 
-**Next session opening moves (carried forward + updated):**
+**Next session opening moves:**
 
-1. Fix the two propagation gaps from Session 4: Phase B Step B.4 copies `conventions/subagent-orchestration/` and `conventions/CLAUDE.md.template` references it.
-2. Fresh `claude --plugin-dir` dogfood of Session 4+5 work.
-3. Still standing: LICENSE file, `/aiforging:update-targets` design, hammer-refactor propagation when patterns change upstream.
-4. Consider adding the `capture-pattern` skill as a Tempering entry point (currently referenced in conventions but not built as a skill).
+1. **Interactive dogfood** — `mkdir ~/forge-test && cd ~/forge-test && claude --plugin-dir ~/projects/aiforging`, run Phase A end-to-end, Phase B against a real CertainPath target, then `/aiforging:new-feature` or `/aiforging:forge` from outside the workspace.
+2. `/aiforging:update-targets` design — the propagation-gap command that sweeps `additionalDirectories` and refreshes each target's `.aiforging/` copies + skills with diff-and-ask semantics.
+3. Consider adding the `capture-pattern` skill content (currently `skills/capture-pattern/SKILL.md` exists but may need the same level of detail as `hammer-refactor`).
+4. Clean up stale `.git/*.lock.bak.*` and `.git/objects/*/tmp_obj_*` files from the host shell (FUSE mount artifacts from Cowork commits).
