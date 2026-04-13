@@ -21,10 +21,18 @@ AI Forging is **not for greenfield projects** in v0.1.0. A separate `/aiforging:
 AI Forging deliberately separates three locations with different lifecycles:
 
 1. **The plugin itself** — installed once per machine from a marketplace. Holds the conventions library, skills, helper scripts, and the `/aiforging:setup` command. You never clone or edit this.
-2. **Your forge workspace** — a directory you create (e.g., `~/forge`) that orchestrates cross-repo feature work. Bootstrapped by `/aiforging:setup` Phase A. Holds your central `docs/features/<name>/spec.md` + `plan.md` files, a committed `.claude/settings.json` with `enabledPlugins`, a gitignored `.claude/settings.local.json` with per-user `permissions.additionalDirectories`, and the workspace-level `capture-pattern` skill for feedback loops that span repos. Designed to become its own git repository so feature history accumulates over time.
-3. **Your target repos** — the codebases being forged. Each is onboarded to a forge workspace via `/aiforging:setup` Phase B. Gets a committed `.aiforging/` (conventions library + pattern/anti-pattern seed + `ANALYSIS.md` snapshot + per-repo `CLAUDE.md` pointer) and, for backend/fullstack repos, committed `.claude/skills/hammer-refactor/` and `.claude/skills/capture-pattern/` so any teammate who clones the repo gets the full toolkit without having to install the aiforging plugin on their machine.
+2. **Your forge workspace** — the directory from which you orchestrate feature work. Bootstrapped by `/aiforging:setup` Phase A. Holds your central `docs/features/<name>/spec.md` + `plan.md` files, a committed `.claude/settings.json` with `enabledPlugins`, and the **shared-tier pattern library** (`.aiforging/patterns/` and `.aiforging/anti-patterns/` with `applies-to` frontmatter for stack filtering). Also installs the workspace-level `capture-pattern` skill for feedback loops that span repos. Designed to accumulate feature history as a git repository over time.
+3. **Your target repos** — the codebases being forged. Each is onboarded to a forge workspace via `/aiforging:setup` Phase B. Gets a committed `.aiforging/` (conventions library + empty **target-local pattern directories** + `ANALYSIS.md` snapshot + per-repo `CLAUDE.md` pointer) and, for backend/fullstack repos, committed `.claude/skills/hammer-refactor/` and `.claude/skills/capture-pattern/` so any teammate who clones the repo gets the full toolkit without having to install the aiforging plugin on their machine.
+
+**Workspace as a role, not always a separate directory.** `/aiforging:setup` opens with a scenario interview that adapts to how your codebase is organized:
+
+- **Multiple repos** — the workspace is a separate directory (e.g., `~/forge`) that points at your target repos via `additionalDirectories` in a gitignored `settings.local.json`.
+- **Monorepo** — the workspace IS your repo root. Sub-projects (e.g., `frontend/`, `backend/`) are detected and each gets its own `.aiforging/` conventions.
+- **Single repo** — the workspace IS the repo. Conventions install at the root.
 
 The split keeps the plugin shareable, each workspace personal, and each target repo self-contained.
+
+**Two-tier pattern library.** Patterns live in two places: a **shared tier** at the workspace level (applies to all targets with matching stacks, has `applies-to` YAML frontmatter) and a **target-local tier** per target repo (applies only to that repo, no frontmatter needed). The `hammer-refactor` skill merges both tiers on every run, filtering by the target's detected stack. The `capture-pattern` skill asks whether each new capture should be shared or target-local. Seeded patterns from the plugin ship in the shared tier; target-local directories start empty.
 
 ## Installation
 
@@ -47,36 +55,46 @@ Installing a plugin at the machine level makes it *available*. Activating it in 
 
 ### 2. Bootstrap a forge workspace
 
-Create an empty directory anywhere you'd like your forge workspace to live, and run `/aiforging:setup` from inside it:
+Run `/aiforging:setup` from the directory that will become your workspace. For multiple repos, create a new directory; for monorepos or single repos, `cd` into the repo root:
 
 ```
-mkdir ~/forge
-cd ~/forge
-claude
-# then, inside Claude Code:
-/aiforging:setup
+# Multiple repos — create a new workspace directory:
+mkdir ~/forge && cd ~/forge && claude
+# then: /aiforging:setup
+
+# Monorepo — cd into the repo root:
+cd ~/my-monorepo && claude
+# then: /aiforging:setup
+
+# Single repo — same as monorepo:
+cd ~/my-project && claude
+# then: /aiforging:setup
 ```
 
 This runs **Phase A — init-workspace**. It:
 
-1. Verifies `superpowers` is installed at the machine level.
-2. Seeds `CLAUDE.md`, `README.md`, `docs/features/README.md`, and a `.gitignore` into the workspace.
-3. Creates a committed `.claude/settings.json` with `enabledPlugins` for `superpowers` and `aiforging` — so anyone (including you) who runs Claude Code in this directory gets both plugins auto-activated.
-4. Creates a gitignored `.claude/settings.local.json` for your per-user `permissions.additionalDirectories`.
-5. Copies the `capture-pattern` skill into the workspace's own `.claude/skills/` so cross-repo Tempering works during workspace sessions.
-6. Offers to `git init` the workspace and stage an initial commit.
-7. Offers to immediately onboard your first target project (which runs Phase B — see next section).
+1. Asks how your codebase is organized (multiple repos / monorepo / single repo) and adapts accordingly.
+2. Verifies `superpowers` is installed at the machine level.
+3. Seeds `CLAUDE.md`, `README.md`, `docs/features/README.md`, and a `.gitignore` into the workspace.
+4. Creates a committed `.claude/settings.json` with `enabledPlugins` for `superpowers` and `aiforging`.
+5. For multi-repo workspaces only: creates a gitignored `.claude/settings.local.json` for per-user `permissions.additionalDirectories`.
+6. Copies the `capture-pattern` skill into the workspace's own `.claude/skills/`.
+7. Seeds the **shared-tier pattern library** (`.aiforging/patterns/` and `.aiforging/anti-patterns/`) with the framework's starting patterns.
+8. Registers the workspace in `~/.claude/aiforging.json` so commands like `/aiforging:new-feature` work from any directory.
+9. For monorepo/single-repo: detects sub-projects and onboards them inline.
+10. For multi-repo: offers to onboard the first target project (Phase B).
+11. Offers to `git init` (if not already a repo) and stage an initial commit.
 
 ### 3. Onboard a target repo
 
-From the same workspace, either continue into Phase B at the end of the Phase A run or re-run `/aiforging:setup` at any later time to onboard another target. This runs **Phase B — onboard-project**. It:
+For multi-repo workspaces, either continue into Phase B at the end of Phase A or re-run `/aiforging:setup` at any later time to onboard another target. For monorepo/single-repo workspaces, sub-project onboarding happens inline during Phase A. Either way, **Phase B — onboard-project** performs:
 
 1. Detects the target's stack (Symfony/Doctrine, React/TS/Playwright, etc.) and confirms whether it's backend, frontend, fullstack, or a meta-repo.
-2. Registers the target's absolute path in the workspace's `settings.local.json`.
+2. For multi-repo only: registers the target's absolute path in the workspace's `settings.local.json`.
 3. Writes `enabledPlugins` into the *target repo's* own `.claude/settings.json` so teammates who clone the target get `superpowers` + `aiforging` auto-activated without touching their personal config.
-4. Copies the conventions library into `<target>/.aiforging/` (architecture, tdd) plus a per-repo `CLAUDE.md` pointer.
+4. Copies the conventions library into `<target>/.aiforging/` (architecture, tdd, subagent-orchestration) plus a per-repo `CLAUDE.md` pointer.
 5. For backend / fullstack targets, offers to install the `hammer-refactor` + `capture-pattern` skills as a bundle into `<target>/.claude/skills/` so anyone cloning the target repo can run them directly.
-6. Seeds `<target>/.aiforging/patterns/` and `<target>/.aiforging/anti-patterns/` with the core AI Forging library as a starting point.
+6. Creates empty `<target>/.aiforging/patterns/` and `<target>/.aiforging/anti-patterns/` directories for the **target-local tier**. Seeded patterns live in the workspace's shared tier — `hammer-refactor` merges both tiers on every run.
 7. Runs the `architecture-analyzer` skill against the target and writes a structured `.aiforging/ANALYSIS.md` report with a score and prioritized findings.
 8. Optionally installs the Playwright-oriented frontend testing convention for frontend / fullstack targets.
 9. Optionally drafts a feature folder at `<workspace>/docs/features/<feature-name>/` with a `spec.md` and a `plan.md` (in the AI Forging slice format) based on the analyzer's findings.
@@ -101,11 +119,14 @@ The enablement block is identifier-based — it *points at* a plugin but doesn't
 aiforging/
 ├── .claude-plugin/                 # plugin manifest + marketplace definition
 ├── commands/
-│   └── setup.md                    # /aiforging:setup (Phase A + Phase B)
+│   ├── setup.md                    # /aiforging:setup (Phase A + Phase B)
+│   ├── new-feature.md              # /aiforging:new-feature — daily-driver feature scaffolding
+│   └── forge.md                    # /aiforging:forge — thin alias for new-feature
 ├── scripts/                        # PEP 723 single-file Python scripts (run under uv or python3)
-│   ├── detect-project.py           #   read-only stack detection
+│   ├── detect-project.py           #   read-only stack detection (recurses for monorepos)
 │   ├── configure-directories.py    #   manages permissions.additionalDirectories
-│   └── configure-plugins.py        #   manages enabledPlugins
+│   ├── configure-plugins.py        #   manages enabledPlugins
+│   └── configure-workspace-pointer.py  #   manages ~/.claude/aiforging.json (run-anywhere pointer)
 ├── skills/
 │   ├── architecture-analyzer/      # non-destructive advisory analysis, runs from workspace
 │   │   └── SKILL.md
@@ -122,8 +143,9 @@ aiforging/
     ├── features/                   #   feature-folder + slice-plan convention
     ├── architecture/               #   Domain-Driven Hexagonal, Single-Action Controllers, Repositories, DTOs, Naming
     ├── tdd/                        #   Fire loop (delegates to superpowers), harness capability contract, repository testing
-    ├── refactoring/                #   Hammer pattern library + Tempering feedback format
-    │   ├── patterns/               #     one file per pattern
+    ├── subagent-orchestration/     #   subagent dispatch conventions (one shot per pattern)
+    ├── refactoring/                #   two-tier pattern library + Tempering feedback format
+    │   ├── patterns/               #     one file per pattern (applies-to frontmatter for shared tier)
     │   └── anti-patterns/          #     one file per anti-pattern
     └── frontend-testing/           #   optional Playwright layer
 ```
@@ -146,9 +168,9 @@ AI Forging adds what superpowers intentionally leaves to each team's architectur
 - A pattern / anti-pattern library structured for fresh-context subagent refactor passes.
 - The `architecture-analyzer` skill for advisory audits.
 - The `hammer-refactor` skill as the executable Hammer stage.
-- The `capture-pattern` skill as the reactive Tempering feedback loop that grows the library one code review at a time.
+- The `capture-pattern` skill as the reactive Tempering feedback loop that grows the library one code review at a time — with a two-tier model (shared across all same-stack targets, or target-local) so cross-pollination is built in.
 - An optional Playwright convention layer for frontend integration tests.
-- A cross-repo forge workspace model with a central `docs/features/<name>/spec.md + plan.md` convention, so features that touch multiple repos have one place to plan and track them.
+- A forge workspace model (separate directory, monorepo root, or single-repo root) with a central `docs/features/<name>/spec.md + plan.md` convention, so features that touch multiple repos (or sub-projects) have one place to plan and track them.
 
 Think of it as a domain-and-architecture opinion layer on top of superpowers. If superpowers is "how", AI Forging is "what you're building and how it should be shaped."
 
@@ -167,12 +189,17 @@ No autonomous deployment. No silent refactoring. Every proposal goes to a human 
 
 v0.1.0 — **research preview.** The plugin structure, conventions library, two-phase `/aiforging:setup` command, and the three skills (`architecture-analyzer`, `hammer-refactor`, `capture-pattern`) are all in place and have been dogfooded against a real backend target. The Symfony/PHP/Doctrine stack is the happy path; other stacks work to the extent that the conventions apply (which is substantial, but mileage will vary until we ship dedicated adapters).
 
+**Shipped since v0.1.0:**
+
+- `/aiforging:new-feature <name> <prompt>` (also aliased as `/aiforging:forge`) — scaffolds `docs/features/<name>/` and hands off to `superpowers:brainstorming`. Works from any directory via the run-anywhere pointer file (`~/.claude/aiforging.json`).
+- **Two-tier pattern library** — shared tier at workspace level with `applies-to` YAML frontmatter, target-local tier per repo. `hammer-refactor` merges both; `capture-pattern` asks shared-vs-local at capture time.
+- **Workspace-as-role** — `/aiforging:setup` adapts to multi-repo, monorepo, and single-repo scenarios via a scenario interview.
+- **Monorepo sub-project detection** — `detect-project.py` recurses into child directories; setup presents detected sub-projects for confirmation.
+
 **Not yet shipped:**
 
 - `/aiforging:execute-plan` — walks through a workspace feature plan with per-step approval gates via `superpowers:executing-plans` and `superpowers:subagent-driven-development`.
-- `/aiforging:update-targets` — propagates plugin-level updates (new skills, new patterns) into previously onboarded target repos.
-- `/aiforging:new-feature <name>` — scaffolds `docs/features/<name>/` and hands off to `superpowers:brainstorming`.
-- `/aiforging:propose-pattern` — promotes a pattern captured in one target's `.aiforging/` back into the plugin's core library so future onboards start with it.
+- `/aiforging:update-targets` — propagates plugin-level updates (new skills, new conventions, new shared-tier patterns) into previously onboarded target repos with diff-and-ask semantics.
 - Dedicated stack adapters for Laravel, Spring/Java, .NET/C#, Node/TS.
 - `/aiforging:new-project` — greenfield scaffolding with stack templates.
 - A community marketplace of patterns contributed by users.
