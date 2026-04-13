@@ -210,6 +210,8 @@ v0.1.0 — **research preview.** The plugin structure, conventions library, two-
 **Shipped since v0.1.0:**
 
 - `/aiforging:new-feature <name> <prompt>` (also aliased as `/aiforging:forge`) — scaffolds `docs/features/<name>/` and hands off to `superpowers:brainstorming`. Works from any directory via the run-anywhere pointer file (`~/.claude/aiforging.json`).
+- `/aiforging:update-targets` — propagates plugin-level updates (new skills, new conventions, new shared-tier patterns) into previously onboarded target repos with diff-and-ask semantics.
+- `/aiforging:uninstall` — clean removal of all plugin artifacts while preserving your feature specs, plans, and user-captured patterns.
 - **Two-tier pattern library** — shared tier at workspace level with `applies-to` YAML frontmatter, target-local tier per repo. `hammer-refactor` merges both; `capture-pattern` asks shared-vs-local at capture time.
 - **Workspace-as-role** — `/aiforging:setup` adapts to multi-repo, monorepo, and single-repo scenarios via a scenario interview.
 - **Monorepo sub-project detection** — `detect-project.py` recurses into child directories; setup presents detected sub-projects for confirmation.
@@ -217,8 +219,6 @@ v0.1.0 — **research preview.** The plugin structure, conventions library, two-
 **Not yet shipped:**
 
 - `/aiforging:execute-plan` — walks through a workspace feature plan with per-step approval gates via `superpowers:executing-plans` and `superpowers:subagent-driven-development`.
-- `/aiforging:update-targets` — propagates plugin-level updates (new skills, new conventions, new shared-tier patterns) into previously onboarded target repos with diff-and-ask semantics.
-- `/aiforging:uninstall` — clean removal of all plugin artifacts while preserving your feature specs, plans, and user-captured patterns.
 - Dedicated stack adapters for Laravel, Spring/Java, .NET/C#, Node/TS.
 - `/aiforging:new-project` — greenfield scaffolding with stack templates.
 - A community marketplace of patterns contributed by users.
