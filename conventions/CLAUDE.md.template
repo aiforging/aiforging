@@ -55,6 +55,17 @@ Follow the folder layout in `.aiforging/architecture/domain-driven-hexagonal.md`
 - Repository tests hit a real isolated database. No mocked Repositories. See `.aiforging/tdd/repository-testing.md`.
 - If the test harness cannot satisfy the capability contract, STOP and fix the harness before writing new Repository tests.
 
+## Subagent orchestration, in short
+
+When dispatching work to fresh-context subagents (via `superpowers:subagent-driven-development` or directly from a forge workspace plan), follow the rules in `.aiforging/subagent-orchestration/README.md`. The short version:
+
+- The **parent conversation is a conductor**, not a coder. It reads `plan.md`, dispatches slices to subagents, and verifies each one — it never writes production code itself.
+- Every subagent prompt **points at `plan.md`** rather than embedding slice details inline. This way, if the plan is updated mid-execution, the next subagent reads the current version.
+- Every subagent **reads this repo's `CLAUDE.md`** (this file) before touching code, so it inherits the conventions.
+- **Dispatch ordering matters.** Slices with explicit dependencies dispatch sequentially; independent slices may run in parallel if the plan allows it.
+- **Every Fire sequence closes with a `[hammer]` slice** that dispatches `hammer-refactor` against the files the sequence touched.
+- Subagents **check off their own tasks** in `plan.md`. The parent never fabricates a checkbox completion.
+
 ## What Claude should do in this repo
 
 1. **First session in this repo**: read `.aiforging/ANALYSIS.md` if it exists — it's the architecture-analyzer's report on where this codebase stands relative to AI Forging ideals. Also check whether this repo is registered in a forge workspace — if so, the current cross-repo plan likely lives at `<forge-workspace>/docs/features/<feature-name>/plan.md`, not in this repo. Ask the user where their forge workspace is if it's not obvious from the session context; a forge workspace is a directory with a `CLAUDE.md` marker containing the string `AI Forging workspace` and a `docs/features/` tree, and the current repo's absolute path lives in that workspace's `.claude/settings.local.json` under `permissions.additionalDirectories`.
@@ -83,7 +94,7 @@ If someone is working directly in this repo (not from a forge workspace), they c
 
 This file was installed by `/aiforging:setup` along with:
 
-- `.aiforging/` — the conventions library and seeded pattern/anti-pattern folders.
+- `.aiforging/` — the conventions library (architecture, tdd, subagent-orchestration) and seeded pattern/anti-pattern folders.
 - `.claude/skills/hammer-refactor/SKILL.md` — the executable Hammer stage, committed so teammates don't need the aiforging plugin installed to run it.
 - `.claude/skills/capture-pattern/SKILL.md` — the reactive Tempering feedback loop, committed so corrective moments during any interactive session in this repo can be persisted as pattern/anti-pattern files with one click.
 - `.claude/settings.json` — has an `enabledPlugins` block enabling `superpowers@claude-plugins-official` and `aiforging@claude-plugins-official`.

@@ -442,6 +442,7 @@ For projects with `role` in (`backend`, `fullstack`):
    - If it doesn't, create it and copy:
      - `${CLAUDE_PLUGIN_ROOT}/conventions/architecture/` → `<target>/.aiforging/architecture/`
      - `${CLAUDE_PLUGIN_ROOT}/conventions/tdd/` → `<target>/.aiforging/tdd/`
+     - `${CLAUDE_PLUGIN_ROOT}/conventions/subagent-orchestration/` → `<target>/.aiforging/subagent-orchestration/`
      - Do NOT copy `conventions/features/` into the target — that convention belongs in the workspace, not in a target repo.
 2. Write `<target>/.aiforging/CLAUDE.md` from `${CLAUDE_PLUGIN_ROOT}/conventions/CLAUDE.md.template`.
 3. Check whether `<target>/CLAUDE.md` exists at the target repo root.
