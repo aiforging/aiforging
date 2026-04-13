@@ -35,8 +35,8 @@ AI Forging does NOT redistribute these plugins; they are peer dependencies. If C
 ## The framework in one minute
 
 - **Fire** — Every feature starts with a failing test. Delegate to `superpowers:test-driven-development`. Red, Green, Refactor. No implementation before a failing test exists.
-- **Hammer** — After the test suite is green, run the post-TDD refactor pass by invoking the `hammer-refactor` skill (committed at `.claude/skills/hammer-refactor/SKILL.md`). The skill scans this repo against `.aiforging/anti-patterns/`, proposes a prioritized slice list, and dispatches one fresh-context subagent per approved slice via `superpowers:subagent-driven-development`. Human reviews each slice's diff before the next one dispatches.
-- **Tempering** — Any new pattern or anti-pattern observed during real refactor work becomes its own `.md` file in `.aiforging/patterns/` or `.aiforging/anti-patterns/`. One pattern, one file. The library grows monotonically — we never edit old patterns silently. The reactive **`capture-pattern` skill** (committed at `.claude/skills/capture-pattern/SKILL.md`) watches for corrective moments during interactive sessions in this repo — when the human rejects a diff, corrects a structural choice, or says "don't do it that way" — and offers to persist the lesson as a new pattern or anti-pattern file with one click. Every captured file is automatically picked up by the next `hammer-refactor` run.
+- **Hammer** — After the test suite is green, run the post-TDD refactor pass by invoking the `hammer-refactor` skill (committed at `.claude/skills/hammer-refactor/SKILL.md`). The skill merges patterns from **two tiers** — the shared tier at the forge workspace level (filtered by this repo's detected stack) plus the target-local tier in this repo's `.aiforging/patterns/` and `.aiforging/anti-patterns/` — proposes a prioritized slice list, and dispatches one fresh-context subagent per approved slice via `superpowers:subagent-driven-development`. Human reviews each slice's diff before the next one dispatches.
+- **Tempering** — Any new pattern or anti-pattern observed during real refactor work becomes its own `.md` file. The reactive **`capture-pattern` skill** (committed at `.claude/skills/capture-pattern/SKILL.md`) watches for corrective moments and asks whether the pattern should be **shared** (written to the workspace-level shared tier with `applies-to` frontmatter, available to all same-stack targets) or **target-local** (written to this repo's `.aiforging/patterns/` or `.aiforging/anti-patterns/`, specific to this repo). One pattern, one file. The library grows monotonically — we never edit old patterns silently. Every captured file is automatically picked up by the next `hammer-refactor` run.
 
 ## Architecture, in short
 
@@ -70,14 +70,14 @@ When dispatching work to fresh-context subagents (via `superpowers:subagent-driv
 
 1. **First session in this repo**: read `.aiforging/ANALYSIS.md` if it exists — it's the architecture-analyzer's report on where this codebase stands relative to AI Forging ideals. Also check whether this repo is registered in a forge workspace — if so, the current cross-repo plan likely lives at `<forge-workspace>/docs/features/<feature-name>/plan.md`, not in this repo. Ask the user where their forge workspace is if it's not obvious from the session context; a forge workspace is a directory with a `CLAUDE.md` marker containing the string `AI Forging workspace` and a `docs/features/` tree, and the current repo's absolute path lives in that workspace's `.claude/settings.local.json` under `permissions.additionalDirectories`.
 2. **Before writing code**: write the failing test. Use `superpowers:test-driven-development`.
-3. **After green tests**: if a refactor pass is warranted, invoke the `hammer-refactor` skill. Do NOT refactor ad-hoc without a pattern reference.
-4. **After a Hammer pass, OR during any interactive code review**: if you observed a reusable rule that the pattern library doesn't already capture, follow the `capture-pattern` skill (at `.claude/skills/capture-pattern/SKILL.md`) to persist it as a new file in `.aiforging/patterns/` or `.aiforging/anti-patterns/`. This is the Tempering pillar — the mechanism by which the library grows. The `capture-pattern` skill biases toward NOT prompting, so only offer when the correction clearly encodes a reusable, structural rule.
+3. **After green tests**: if a refactor pass is warranted, invoke the `hammer-refactor` skill. It reads patterns from both the workspace shared tier and this repo's target-local tier. Do NOT refactor ad-hoc without a pattern reference.
+4. **After a Hammer pass, OR during any interactive code review**: if you observed a reusable rule that the pattern library doesn't already capture, follow the `capture-pattern` skill (at `.claude/skills/capture-pattern/SKILL.md`) to persist it. The skill asks whether the pattern should be shared (workspace-level, available to all same-stack targets) or target-local (this repo only). This is the Tempering pillar — the mechanism by which the library grows. The `capture-pattern` skill biases toward NOT prompting, so only offer when the correction clearly encodes a reusable, structural rule.
 5. **Before merging**: wait for human review. Four gates — tests, code review, architecture decisions, deployment authorization.
 
 ## What Claude should NOT do in this repo
 
 - **Never skip Fire.** No implementation before a failing test.
-- **Never refactor without a pattern reference.** If a change doesn't correspond to a file in `.aiforging/patterns/` or `.aiforging/anti-patterns/`, it's either out of scope or a candidate for a new pattern — which is a Tempering task, not a Hammer task.
+- **Never refactor without a pattern reference.** If a change doesn't correspond to a file in either tier (workspace shared `.aiforging/patterns/` or target-local `.aiforging/patterns/`), it's either out of scope or a candidate for a new pattern — which is a Tempering task, not a Hammer task.
 - **Never collapse the pattern library into a single file.** One pattern, one file.
 - **Never mock the database in a Repository test.** Use the real test harness.
 - **Never introduce a fat controller.** See `.aiforging/anti-patterns/fat-controller.md`.
@@ -94,7 +94,7 @@ If someone is working directly in this repo (not from a forge workspace), they c
 
 This file was installed by `/aiforging:setup` along with:
 
-- `.aiforging/` — the conventions library (architecture, tdd, subagent-orchestration) and seeded pattern/anti-pattern folders.
+- `.aiforging/` — the conventions library (architecture, tdd, subagent-orchestration) and target-local pattern/anti-pattern folders (start empty; seeded patterns live in the workspace shared tier instead).
 - `.claude/skills/hammer-refactor/SKILL.md` — the executable Hammer stage, committed so teammates don't need the aiforging plugin installed to run it.
 - `.claude/skills/capture-pattern/SKILL.md` — the reactive Tempering feedback loop, committed so corrective moments during any interactive session in this repo can be persisted as pattern/anti-pattern files with one click.
 - `.claude/settings.json` — has an `enabledPlugins` block enabling `superpowers@claude-plugins-official` and `aiforging@claude-plugins-official`.
