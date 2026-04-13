@@ -82,7 +82,7 @@ final class DoctrineInvoiceRepository implements InvoiceRepositoryInterface
 
 ## Do-not list
 
-- **Do not extend the framework's default repository base class.** That's how you accidentally expose `->createQueryBuilder()` to the rest of the app.
+- **Do not let framework repository internals leak outside the class.** Extending the framework's base repository class (e.g., `ServiceEntityRepository`, `JpaRepository`) is fine — the shortcuts it provides keep repo code compact. The problem is that most frameworks make inherited methods like `createQueryBuilder()`, `findBy()`, or `getEntityManager()` public rather than protected, so they're callable from Services and Controllers. The repository's public API should be your explicitly defined methods (e.g., `findActiveByCustomer()`). Everything inherited from the base class is an implementation detail — if a caller can reach it, the abstraction is leaking.
 - **Do not return arrays, rows, or DTOs from a Repository.** Repositories return Entities (or a collection of Entities). Mapping to DTOs happens in the Service or a dedicated Mapper.
 - **Do not put Repository methods on the Entity.** `Invoice::findAllForCustomer($id)` is a red flag, every time.
 - **Do not inject the `EntityManager` / `DataSource` into Services.** Services depend on Repository interfaces. If a Service touches the `EntityManager` directly, it's doing the Repository's job.
