@@ -18,7 +18,7 @@ Once your workspace and targets are set up, these are the commands you'll reach 
 
 **Reviewing code and catching a lesson.** You're pair-programming with Claude, spot something less than ideal, and explain the fix. Claude's `capture-pattern` skill activates and offers to persist the lesson as a new pattern or anti-pattern file — one correction, one file, immediately available on every future Hammer pass. It'll ask whether the pattern applies to just this repo or all same-stack targets.
 
-**Running a Hammer pass.** After a feature lands and the tests pass, invoke `hammer-refactor` against the changed files. It fans out one fresh-context subagent per applicable pattern — parallel, isolated, no drift. You review each proposal and accept or reject.
+**Hammer passes run automatically.** At the end of each TDD cycle, `hammer-refactor` auto-triggers against the changed files — one fresh-context subagent per applicable pattern, parallel, isolated, no drift. You review each proposal and accept or reject. (You can also invoke it manually against any set of files if you want a targeted pass outside the normal flow.)
 
 **Auditing a codebase you just inherited.** Onboard it with `/aiforging:setup`, and the architecture analyzer produces a scored assessment with prioritized findings. A structured starting point instead of grepping around.
 
