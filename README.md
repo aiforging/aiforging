@@ -192,6 +192,43 @@ AI Forging adds what superpowers intentionally leaves to each team's architectur
 
 Think of it as a domain-and-architecture opinion layer on top of superpowers. If superpowers is "how", AI Forging is "what you're building and how it should be shaped."
 
+## Upgrading
+
+The plugin code itself updates when you pull a new version from the marketplace. But the artifacts that `/aiforging:setup` *copied* into your workspace and target repos — conventions, skills, seeded patterns — are frozen at the version they were installed at. Two paths to get them current:
+
+### Light upgrade (recommended)
+
+Update the plugin at the machine level, then propagate the changes:
+
+```
+# Update the plugin:
+/plugin update aiforging@aiforging
+
+# From your forge workspace, propagate updates to all targets:
+/aiforging:update-targets
+```
+
+`/aiforging:update-targets` diffs every copied artifact (conventions, skills, seeded patterns) against the new plugin version and asks before overwriting. Your user-captured patterns and feature specs are never touched. This is the right choice for minor version bumps and incremental improvements.
+
+### Clean reinstall (for major upgrades or a fresh start)
+
+If you're jumping across major versions, or if your setup feels tangled from experimental changes, a clean reinstall is the safest path:
+
+```
+# 1. Remove all plugin artifacts (preserves your feature specs and user patterns):
+/aiforging:uninstall
+
+# 2. Update the plugin:
+/plugin update aiforging@aiforging
+
+# 3. Re-bootstrap from scratch:
+/aiforging:setup
+```
+
+The uninstall is designed to preserve your work: `docs/features/` (all your specs and plans), user-captured patterns (anything without `seeded: true` in frontmatter), and customized template files (it asks before removing those). After the reinstall, your workspace will have the latest conventions and skills, and your existing feature history is still there.
+
+**What you'll need to redo after a clean reinstall:** the scenario interview (multi-repo / monorepo / single-repo), target onboarding for each repo or sub-project, and the architecture analyzer run. The setup command walks you through all of this interactively — it's the same flow as the first time, just faster because your repos haven't changed.
+
 ## Governance
 
 **AI Forges. Humans decide.** Four human gates, always:
