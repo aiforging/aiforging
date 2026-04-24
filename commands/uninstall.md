@@ -22,7 +22,7 @@ Detected by the workspace markers (same as `/aiforging:setup` Step 1): `./CLAUDE
 Discover targets based on workspace scenario:
 
 - **Scenario A (multi-repo):** read `settings.local.json` → list of target paths.
-- **Scenario B (monorepo):** scan for sub-directories containing `.aiforging/`.
+- **Scenario B (monorepo):** scan for sub-directories containing `.aiforging/`, checking TWO levels deep to catch both service wrapper placements (e.g., `webapp/.aiforging/`) and pre-v0.2.0 placements inside app subdirectories (e.g., `webapp/application/.aiforging/`). Deduplicate: if both `webapp/.aiforging/` and `webapp/application/.aiforging/` exist, treat them as one target (`webapp/`) and clean up both locations.
 - **Scenario C (single repo):** check if `./.aiforging/` exists at the workspace root.
 
 Default scope: **full** (workspace + all targets).
@@ -311,6 +311,14 @@ If all seeded patterns are removed and no user-captured patterns exist, the `.ai
 ### Other plugins sharing `.claude/skills/`
 
 Before removing `.claude/skills/hammer-refactor/` or `.claude/skills/capture-pattern/`, check that no other plugin contributed files to those directories. In practice this is unlikely (skill directory names are plugin-specific), but if unexpected files exist in a skill directory, warn and skip rather than deleting blindly.
+
+### Service wrapper targets (v0.2.0+)
+
+When a target was onboarded with service wrapper detection (e.g., `webapp/` wrapping `webapp/application/`), `.aiforging/` lives at the service root (`webapp/.aiforging/`), not inside the app subdirectory. The uninstall should clean up at the service root level. However, if the target was originally onboarded with v0.1.0 (which placed `.aiforging/` at `webapp/application/.aiforging/`), the pre-v0.2.0 artifacts may still exist at the old depth. Check both locations and clean up whichever exists. If both exist (partially migrated state), clean up both and note this in the summary.
+
+### `~/.claude/aiforging.json` does not exist
+
+If the user declined the global config pointer during setup (default N since v0.2.0), `~/.claude/aiforging.json` may not exist. Skip the pointer cleanup step silently — no error, no warning.
 
 ### Re-running uninstall
 
