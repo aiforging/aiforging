@@ -32,7 +32,7 @@ Once your workspace and targets are set up, these are the commands you'll reach 
 
 Software crafters with **established codebases** who already feel the pain of AI-generated sprawl and are ready to adopt an opinionated workflow. Teams whose backends are built around a Data Mapper ORM (Doctrine, Hibernate, Entity Framework Core, TypeORM, MikroORM) will get the most value out of the box. Teams on Active Record stacks (Eloquent, Rails) can still adopt the framework with caveats documented in the conventions.
 
-AI Forging is **not for greenfield projects** in v0.1.0. A separate `/aiforging:new-project` command may come later. It is also **not descriptive** — it is prescriptive, and it will tell you to refactor things. That's the point.
+AI Forging is **not for greenfield projects** in v0.2. A separate `/aiforging:new-project` command may come later. It is also **not descriptive** — it is prescriptive, and it will tell you to refactor things. That's the point.
 
 ## The three-layer model
 
@@ -205,16 +205,23 @@ No autonomous deployment. No silent refactoring. Every proposal goes to a human 
 
 ## Status
 
-v0.1.0 — **research preview.** The plugin structure, conventions library, two-phase `/aiforging:setup` command, and the three skills (`architecture-analyzer`, `hammer-refactor`, `capture-pattern`) are all in place and have been dogfooded against a real backend target. The Symfony/PHP/Doctrine stack is the happy path; other stacks work to the extent that the conventions apply (which is substantial, but mileage will vary until we ship dedicated adapters).
+v0.2.0 — **research preview.** The plugin structure, conventions library, two-phase `/aiforging:setup` command, and the three skills (`architecture-analyzer`, `hammer-refactor`, `capture-pattern`) are all in place and have been dogfooded against real backend targets by both the author and an external tester. The Symfony/PHP/Doctrine stack is the happy path; other stacks work to the extent that the conventions apply (which is substantial, but mileage will vary until we ship dedicated adapters).
 
-**Shipped since v0.1.0:**
+**What's in v0.2.0** (see `CHANGELOG.md` for details):
+
+- Service wrapper detection — Dockerized monorepos where the framework code lives in a subdirectory (e.g., `webapp/application/`) are now detected correctly; `.aiforging/` lands at the service boundary, not inside the app subdirectory.
+- Playwright convention onboarding no longer skipped when an existing Playwright config is detected — the default flips to Y because an existing setup makes conventions more relevant, not less.
+- Global config consent (`~/.claude/aiforging.json`) is now opt-in with a front-loaded explanation of what gets written outside cwd.
+- Skill copy messaging explains that the plugin already provides the skills as commands; repo-local copies are for teammate discoverability.
+
+**Also shipped:**
 
 - `/aiforging:new-feature <name> <prompt>` (also aliased as `/aiforging:forge`) — scaffolds `docs/features/<name>/` and hands off to `superpowers:brainstorming`. Works from any directory via the run-anywhere pointer file (`~/.claude/aiforging.json`).
 - `/aiforging:update-targets` — propagates plugin-level updates (new skills, new conventions, new shared-tier patterns) into previously onboarded target repos with diff-and-ask semantics.
 - `/aiforging:uninstall` — clean removal of all plugin artifacts while preserving your feature specs, plans, and user-captured patterns.
 - **Two-tier pattern library** — shared tier at workspace level with `applies-to` YAML frontmatter, target-local tier per repo. `hammer-refactor` merges both; `capture-pattern` asks shared-vs-local at capture time.
 - **Workspace-as-role** — `/aiforging:setup` adapts to multi-repo, monorepo, and single-repo scenarios via a scenario interview.
-- **Monorepo sub-project detection** — `detect-project.py` recurses into child directories; setup presents detected sub-projects for confirmation.
+- **Monorepo sub-project detection** — `detect-project.py` recurses into child directories with service wrapper awareness; setup presents detected sub-projects for confirmation.
 
 **Not yet shipped:**
 

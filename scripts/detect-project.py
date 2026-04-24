@@ -147,6 +147,10 @@ class ProjectInfo:
     frontend: FrontendInfo = field(default_factory=FrontendInfo)
     children: list[dict[str, Any]] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    # When the project is inside a service wrapper (e.g., webapp/application/
+    # where webapp/ is the service boundary), this field records the subdirectory
+    # name where the actual framework code lives.
+    app_subdir: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -312,6 +316,55 @@ def _classify_kind(info: ProjectInfo) -> None:
         info.kind = "unknown"
 
 
+def _detect_service_wrapper(
+    candidate: Path, manifests: list[str]
+) -> Path | None:
+    """Check if `candidate` is a service wrapper directory.
+
+    A service wrapper is a directory that has no project manifest of its own
+    but contains exactly one subdirectory with a recognized manifest.  Common
+    examples:
+
+        webapp/              ← service wrapper (no composer.json here)
+        ├── application/     ← actual Symfony app (composer.json here)
+        ├── docker/          ← infra, not a project
+        └── bin/             ← infra, not a project
+
+    Returns the path to the app subdirectory if a wrapper is detected,
+    or None if the directory doesn't match the pattern.
+    """
+    # Well-known app subdirectory names to check first (ordered by frequency).
+    # If none of these exist, fall back to scanning all children.
+    well_known = ["application", "app", "src"]
+    skip_dirs = {
+        "node_modules", "vendor", "dist", "build", "target",
+        "bin", "obj", "var", "tmp", "docker", "deploy", "infra",
+        "scripts", "docs", "config", ".git",
+    }
+
+    # Fast path: check well-known names first
+    for name in well_known:
+        subdir = candidate / name
+        if subdir.is_dir() and any((subdir / m).exists() for m in manifests):
+            return subdir
+
+    # Slow path: scan all children for exactly one project-bearing subdir
+    project_children: list[Path] = []
+    for child in sorted(candidate.iterdir()):
+        if not child.is_dir():
+            continue
+        if child.name.startswith(".") or child.name in skip_dirs:
+            continue
+        if any((child / m).exists() for m in manifests):
+            project_children.append(child)
+
+    # Only treat as a wrapper if there's exactly one project child.
+    # Two or more → it's a multi-project dir, not a wrapper.
+    if len(project_children) == 1:
+        return project_children[0]
+    return None
+
+
 def scan_directory(root: Path, *, recurse_children: bool = True) -> ProjectInfo:
     """Scan one directory. If it looks like a meta-repo (contains sub-repos
     that are themselves projects), scan each sub-repo too."""
@@ -346,10 +399,35 @@ def scan_directory(root: Path, *, recurse_children: bool = True) -> ProjectInfo:
                 "package.json", "composer.json", "pyproject.toml",
                 "pom.xml", "build.gradle", "Gemfile",
             ]
-            if not any((child / m).exists() for m in manifests):
+            if any((child / m).exists() for m in manifests):
+                child_info = scan_directory(child, recurse_children=False)
+                info.children.append(child_info.as_dict())
                 continue
-            child_info = scan_directory(child, recurse_children=False)
-            info.children.append(child_info.as_dict())
+
+            # Service wrapper detection: a directory like webapp/ that
+            # doesn't have its own manifest but contains a subdirectory
+            # (typically "application/", "app/", or "src/") that does.
+            # Common in Dockerized setups where the service dir also holds
+            # docker/, bin/, etc. alongside the app code.
+            #
+            # When detected, we report the wrapper dir as the service root
+            # and record which subdirectory holds the actual framework code
+            # in the "app_subdir" field, so the setup command can install
+            # conventions at the right depth.
+            wrapper_child = _detect_service_wrapper(child, manifests)
+            if wrapper_child is not None:
+                child_info = scan_directory(wrapper_child, recurse_children=False)
+                # Re-root the child info to the wrapper directory (the
+                # service boundary the user thinks of as "the service").
+                child_info.root = str(child.resolve())
+                child_info.name = child.name
+                child_info.app_subdir = wrapper_child.name
+                child_info.notes.append(
+                    f"service wrapper detected: framework code lives in "
+                    f"{child.name}/{wrapper_child.name}/, service root is "
+                    f"{child.name}/"
+                )
+                info.children.append(child_info.as_dict())
 
     _classify_kind(info)
     return info

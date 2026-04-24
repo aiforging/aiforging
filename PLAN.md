@@ -204,7 +204,7 @@ aiforging/                          # plugin source repo (where we are)
 
 ## Current Status
 
-Last updated: 2026-04-13 (Session 5 — two-tier pattern library, workspace-as-role, update-targets design)
+Last updated: 2026-04-23 (Session 6 — v0.2.0 external feedback round)
 
 ### Built
 
@@ -611,3 +611,34 @@ The rework touched every framework file that references the pattern library or w
 1. **Interactive dogfood** — Chris will handle this himself. Clean up previous attempt artifacts first, then test all three scenarios (multi-repo, monorepo, single-repo) end-to-end via `claude --plugin-dir ~/projects/aiforging`.
 2. **Dogfood `/aiforging:update-targets`** — bootstrap a workspace, onboard a target, simulate a plugin update (edit a convention or skill in the source repo, `/reload-plugins`), then run `/aiforging:update-targets` to verify the diff-and-ask flow works.
 3. Clean up stale `.git/*.lock.bak.*` and `.git/objects/*/tmp_obj_*` files from the host shell (FUSE mount artifacts from Cowork commits).
+
+### Session 6 — 2026-04-23 (v0.2.0 — external feedback round)
+
+**Srdjan Vranac field-tested the plugin** against a real Dockerized Symfony monorepo (brandknight — multi-service with snooper, webapp, retriever, static-web, migrations). He ran `/aiforging:setup` end-to-end (Scenario B / monorepo) and then used the forge workflow. His feedback email included 5 items: 2 bugs, 2 UX concerns, and 1 future idea. All 4 actionable items addressed in this session; the future idea (pluggable specialist agents per slice) is parked for post-v1.
+
+**Changes this session:**
+
+1. **Service wrapper detection in `detect-project.py`** — new `_detect_service_wrapper()` function and `app_subdir` field on `ProjectInfo`. Detects directories like `webapp/` that don't have a manifest but wrap an `application/` subdirectory that does. Well-known names (`application`, `app`, `src`) checked first; fallback scans all children for exactly one project-bearing subdir. Setup command (`commands/setup.md`) updated: Step A.2.7 now documents `app_subdir` behavior and adjusts confirmation prompts; Step B.4 uses the service root for `.aiforging/` placement. Addresses Srdjan's feedback #3: `.aiforging/` now lands at `webapp/` instead of `webapp/application/`.
+
+2. **Playwright convention onboarding fixed** — Step B.8 no longer skips when Playwright is already detected. If `playwright.config.ts` or `frontend.test_runner == "playwright"` is present, the default flips to Y and the prompt explains the conventions complement the existing setup. Addresses Srdjan's feedback #4.
+
+3. **Global config consent reworked** — Step A.2.5 now defaults to N (was Y), leads with an explicit "heads up — this writes outside cwd" warning, explains exactly what gets written and where, and frames the opt-out as perfectly fine. Addresses Srdjan's feedback #2.
+
+4. **Skill copy messaging improved** — Step B.5 now explicitly acknowledges that users with the aiforging plugin already have the skills available as plugin commands, and explains the repo-local copy is for teammate discoverability. Addresses Srdjan's feedback #1.
+
+5. **Version bumped to 0.2.0** in `plugin.json`.
+
+6. **`CHANGELOG.md` created** with v0.1.0 baseline and v0.2.0 entries.
+
+7. **`README.md` updated** — status section reflects v0.2.0, version reference in "Who this is for" updated, v0.2.0 changes listed.
+
+**Parked for future:**
+
+- **Pluggable specialist agents in the pipeline** (Srdjan's feedback #5). He wanted to plug in a `react-specialist` agent for frontend slices. The `hammer-refactor` dispatch model could support an extension point where users register specialist skills per stack. Not v0.2 scope — the underlying issue is also partly an LLM capability limitation, as Srdjan acknowledged.
+
+**Next session opening moves:**
+
+1. **Dogfood v0.2.0** — test service wrapper detection against a real Dockerized monorepo structure. Verify `.aiforging/` lands at the service root.
+2. **Dogfood the Playwright consent change** — onboard a project with existing Playwright config and verify the default flips to Y.
+3. **Dogfood the global config consent change** — verify the default is N and the explanation is clear.
+4. Consider whether Decision 20 (candidate) — upstream pattern propagation — should be designed for v0.3.

@@ -270,13 +270,25 @@ After seeding, show the user the tree that was created — call out explicitly t
 
 ### Step A.2.5 — Register the workspace in the run-anywhere pointer file
 
-Write the new workspace's absolute path into the per-user pointer file at `~/.claude/aiforging.json` so that daily-driver commands like `/aiforging:new-feature` can find it even when the user runs them from outside the workspace. This file is owned by `configure-workspace-pointer.py`. It lives under the user's Claude Code config directory (NOT under `${CLAUDE_PLUGIN_ROOT}` — never write there) and is per-user.
+This step writes a small pointer file OUTSIDE the current working directory — to `~/.claude/aiforging.json` in the user's home directory. **This is the only step in the entire setup that writes outside cwd**, and some users have strong feelings about tools that reach into global user config space. The consent must be explicit and front-loaded.
 
-Before calling the helper, tell the user what it does and that it is per-user (not per-workspace, not per-target), and confirm:
+**Before doing anything**, explain clearly what will happen and why, then ask for explicit permission:
 
-> I'll register this workspace at `~/.claude/aiforging.json` so that when you run `/aiforging:new-feature` from any directory — not just this workspace — it can find your active forge workspace automatically. The pointer file lives under your personal Claude config and is never committed to any repo. Proceed? [Y/n]
+> **Heads up — this next step writes outside your current directory.**
+>
+> AI Forging has a "run-anywhere" feature: commands like `/aiforging:new-feature` can find your workspace even when you're `cd`'d into a different directory. To make that work, I'd write a small pointer file at `~/.claude/aiforging.json` containing the absolute path to this workspace.
+>
+> What this file contains: just a JSON object with `active_workspace` (this directory's path) and a `workspaces` history list. Nothing sensitive.
+>
+> What it does NOT do: it doesn't modify any Claude Code settings, doesn't affect other plugins, and is never committed to any repo.
+>
+> **This is entirely optional.** If you skip it, everything still works — you just need to `cd` into this workspace before running `/aiforging:new-feature` or `/aiforging:forge`.
+>
+> Write the pointer file to `~/.claude/aiforging.json`? [y/N]
 
-Default: Y. If the user says no, skip this step and print a reminder that `/aiforging:new-feature` will only work from inside this workspace until the pointer file is populated.
+Default: **N**. This is a deliberate change from the previous default of Y — writing outside cwd should be opt-in, not opt-out. If the user says no, print:
+
+> No problem — skipped. You can always register this workspace later by running the helper manually from inside the workspace directory.
 
 If yes, run:
 
@@ -301,6 +313,15 @@ $FORGE_PY ${CLAUDE_PLUGIN_ROOT}/scripts/detect-project.py "$(pwd)"
 
 Parse the JSON output. `detect-project.py` already recurses into child directories for meta-repo detection — the `children` array in the output contains detected sub-projects with their own `stack`, `frameworks`, and `path` fields.
 
+**Service wrapper detection.** `detect-project.py` can detect "service wrapper" directories — a directory like `webapp/` that doesn't contain a project manifest directly but wraps a subdirectory like `application/` that does. When this pattern is detected, the child's `root` is set to the wrapper directory (the service boundary), its `name` is the wrapper directory's name, and the `app_subdir` field records which subdirectory holds the actual framework code (e.g., `"application"`). This matters for convention installation: `.aiforging/` should be placed at the service root (the wrapper), not inside the app subdirectory. The notes will explain the detection:
+
+```
+"service wrapper detected: framework code lives in webapp/application/,
+ service root is webapp/"
+```
+
+When presenting sub-projects to the user, show the wrapper + app path so the user can confirm or correct the detected boundary. For example: `webapp/ (app in application/)` rather than just `webapp/application/`.
+
 **If `children` is non-empty (monorepo with sub-projects):**
 
 Present the detected sub-projects for confirmation:
@@ -308,12 +329,14 @@ Present the detected sub-projects for confirmation:
 > "I detected the following sub-projects in your monorepo:"
 >
 > 1. `frontend/` — react, next
-> 2. `backend/` — symfony-php, doctrine
+> 2. `webapp/` — symfony-php, doctrine (app code in `webapp/application/`)
 > 3. `packages/shared/` — node-ts
 >
 > "Which of these should I onboard with AI Forging conventions? [all / pick by number / none]"
 
 Default: all. For each confirmed sub-project, record it as a target. These targets will be onboarded inline — Phase A continues into a streamlined Phase B loop for each sub-project (no `additionalDirectories` needed since everything is under one root).
+
+**Convention placement for service wrappers.** When a sub-project has `app_subdir` set, install `.aiforging/` at the service root (the wrapper directory), NOT inside the app subdirectory. For example, for `webapp/` with `app_subdir: "application"`, conventions go to `webapp/.aiforging/`, not `webapp/application/.aiforging/`. This matches the user's mental model of the service boundary. However, the `detect-project.py` evidence paths and the architecture analyzer should still scan the app subdirectory where the actual source code lives.
 
 **If `children` is empty (single project at root — Scenario C, or a monorepo whose structure wasn't auto-detected):**
 
@@ -578,6 +601,8 @@ Show the resulting JSON output. After this step, a teammate who clones the targe
 
 For projects with `role` in (`backend`, `fullstack`):
 
+**Determine the convention install path.** If the target has `app_subdir` set (service wrapper detected), `.aiforging/` goes at the service root (e.g., `webapp/.aiforging/`), NOT inside the app subdirectory (NOT `webapp/application/.aiforging/`). The convention install path is `<target>/.aiforging/` where `<target>` is the `root` from `detect-project.py` output (which is already the service wrapper directory when `app_subdir` is set). This matches the user's mental model of the service boundary.
+
 1. Check whether `<target>/.aiforging/` already exists.
    - If it does, diff the existing contents against `${CLAUDE_PLUGIN_ROOT}/conventions/` and present the diff. Ask before overwriting. Never overwrite silently.
    - If it doesn't, create it and copy:
@@ -594,17 +619,21 @@ For projects with `role` == `frontend`: skip this step. Frontend projects can op
 
 ### Step B.5 — Offer to install the AI Forging skills into the target repo
 
-For projects with `role` in (`backend`, `fullstack`), offer to install **two** skills inside the target repo, both committed alongside the code so teammates cloning the repo can use them without needing the aiforging plugin installed on their machine:
+For projects with `role` in (`backend`, `fullstack`), offer to install **two** skills inside the target repo.
 
-> I'd like to install two AI Forging skills into this target repo at `<target>/.claude/skills/`. Both are backend/fullstack-only and together they implement the Hammer and Tempering stages of the forge:
+**Important context for the user prompt:** If you have the `aiforging` plugin installed, these skills are ALREADY available to you as plugin commands — you can invoke them anytime via `/aiforging:hammer-refactor` or `/aiforging:capture-pattern`. The purpose of copying them into the target repo is **teammate discoverability**: anyone who clones this repo gets the skills automatically via `.claude/skills/`, even if they haven't installed the aiforging plugin on their machine. This is the same pattern as checking in an `.editorconfig` or a linter config — the tool works without it, but the repo-local copy ensures consistency across the team.
+
+Present this distinction clearly to the user:
+
+> **A note on how these skills work:** Since you have the `aiforging` plugin installed, you can already use `hammer-refactor` and `capture-pattern` as plugin skills — they're available right now. What I'm offering here is to **also** copy them into this target repo at `<target>/.claude/skills/` so that teammates who clone the repo get them automatically, even without installing the aiforging plugin. Think of it like checking in a shared config file.
+>
+> The two skills:
 >
 > 1. **`hammer-refactor`** (the executable Hammer stage). Scans the target's changed files against the pattern/anti-pattern library in `.aiforging/patterns/` and `.aiforging/anti-patterns/`, dispatching one fresh-context subagent per file via `superpowers:subagent-driven-development`. Adding the 50th pattern costs no more than the 5th because each gets its own subagent.
 >
 > 2. **`capture-pattern`** (the Tempering feedback loop). Reactive skill that watches for corrective moments during interactive sessions — when you reject a diff, correct a structural choice, or say "that's not how we do it," the skill offers to persist the lesson as a new file under `.aiforging/patterns/` or `.aiforging/anti-patterns/`. The next Hammer pass automatically includes the captured pattern. This is how the library grows: one code review, one `.md` file.
 >
-> Both skills are discoverable by anyone cloning this target repo, independent of whether the aiforging plugin is installed on their machine. This is deliberate — it matches AI Forging's `peerDependencies` model.
->
-> Install both skills into `<target>`? [Y/n]
+> Copy both skills into `<target>/.claude/skills/` for teammate discoverability? [Y/n]
 
 Default: **Y** for backend/fullstack projects. If the user declines the bundle, offer each skill separately (defaults Y each) — these are the core Hammer and Tempering mechanisms and declining both effectively opts out of the framework's backend value.
 
@@ -665,11 +694,21 @@ Save the skill's output to `<target>/.aiforging/ANALYSIS.md`. Summarize the top 
 
 ### Step B.8 — Optional frontend testing layer
 
-For projects with `role` in (`frontend`, `fullstack`), ask ONCE:
+For projects with `role` in (`frontend`, `fullstack`), ask ONCE. Check whether Playwright is already detected in the target (look for `frontend.test_runner == "playwright"` in the `detect-project.py` output, or for `playwright.config.ts`/`playwright.config.js` in the target). Adjust the prompt and default accordingly:
+
+**If Playwright is already detected in the project:**
+
+> This project already has Playwright configured. AI Forging ships a Playwright testing convention with best practices for contract-regression testing between frontend and backend — it complements your existing setup, it doesn't replace it. Install the convention docs? [Y/n]
+
+Default: **Y**. The existing Playwright config is evidence that the team already uses Playwright — the conventions add value on top of what they already have. **Do not skip this step just because Playwright is already configured.** "Already configured" means "the team uses Playwright" — that's a reason to install the conventions, not a reason to skip them.
+
+**If Playwright is NOT detected:**
 
 > AI Forging ships an optional Playwright-oriented frontend testing convention. The core framework doesn't require it — tests are still a backend concern — but Playwright is useful for catching contract regressions between frontend and backend. Install it for this project? [y/N]
 
-Default: **N**. If yes:
+Default: **N**.
+
+If yes (either path):
 
 ```bash
 mkdir -p <target>/.aiforging/frontend-testing

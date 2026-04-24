@@ -1,6 +1,6 @@
 {
   "name": "aiforging",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AI Forging — a structured AI-assisted development framework for producing robust, maintainable codebases. Test-first, pattern-driven refactoring, and domain-driven architecture, installed as a set of conventions + a prescriptive setup flow.",
   "author": {
     "name": "Chris Holland",
