@@ -8,6 +8,14 @@
 
 If that skill isn't available in this session, STOP. Either install the superpowers plugin (see the plugin's main README or re-run `/aiforging:setup`) or confirm with your human partner that you're intentionally proceeding without it. Do not reinvent the loop inline.
 
+## Scoped test runs — keep the loop fast
+
+When running the Red/Green/Refactor loop, scope each test run to the **feature's test class or directory**, not the full repository suite. The speed of the feedback loop is the speed of the cycle — a 2-second focused run beats a 2-minute full suite every time, especially when you're iterating through Red → Green → Red → Green.
+
+Practically: `phpunit --filter InvoiceTaxTest`, `pytest tests/invoicing/`, `vitest run src/invoicing/`. If the superpowers TDD skill runs the full suite by default, narrow the scope in your prompt or by passing the test file path.
+
+The full repository suite is for the end of the feature, not the middle of the loop. Run it once when you're done with Fire and before you hand off to Hammer, and optionally again after Hammer completes all its slices (see `hammer-refactor` Step 6). That final full-suite run is a recommendation, not a gate — you can start reviewing code while it runs.
+
 ## What AI Forging adds on top of the superpowers TDD skill
 
 Two things that superpowers intentionally leaves to each project's architecture:

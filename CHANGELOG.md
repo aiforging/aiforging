@@ -19,6 +19,10 @@ First external feedback round — incorporating field testing from [Srdjan Vrana
 
 - **Skill copy messaging in Step B.5 now explains the plugin-vs-repo distinction.** Users with the `aiforging` plugin installed already have `hammer-refactor` and `capture-pattern` available as plugin skills. The setup prompt now explicitly acknowledges this and explains that copying skills into the target repo is for teammate discoverability — ensuring anyone who clones the repo gets the skills automatically, even without the plugin installed. ([Feedback #1])
 
+- **`hammer-refactor` now makes atomic git commits per refactor slice.** After each subagent completes a slice and tests pass, the skill commits the change with a descriptive message naming the pattern and target file. This gives a clean, individually-revertible history instead of one large uncommitted diff at the end.
+
+- **Scoped test runs throughout the forge cycle.** Both Fire (TDD) and Hammer now prescribe running only the feature's test class or directory during the iterative loop — not the full repository suite. The full suite is recommended once at the end of Fire (before Hammer) and optionally after all Hammer slices complete, as a non-blocking final check. This keeps feedback loops fast on large codebases.
+
 ### Added
 
 - `CHANGELOG.md` — this file.

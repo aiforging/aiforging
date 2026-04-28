@@ -93,28 +93,35 @@ For each approved `(anti-pattern, file, line-range)` slice, use the Task tool (v
 
 1. The anti-pattern file path (the subagent reads it fresh).
 2. The target file path and line range.
-3. Absolute rule: "All tests must still pass at the end. Run the feature's test suite before reporting done. If any test fails, revert and report what you tried."
+3. Absolute rule: "All feature-relevant tests must still pass at the end. Run ONLY the test class(es) or test directory for the feature being refactored — not the full repo suite. If any test fails, revert and report what you tried."
 4. Absolute rule: "Do not touch any file outside the specified target unless the anti-pattern file explicitly says the refactor requires it."
 5. A reminder to follow the corresponding pattern file (if the anti-pattern names one) from `.aiforging/patterns/`.
 
 Each subagent runs independently. The parent context waits for the report, reviews it, and moves on.
 
-### Step 5 — Verify after each slice
+### Step 5 — Verify and commit after each slice
 
 After each subagent reports back, the parent context:
 
-1. Runs the target repo's test suite once more to confirm green. If red, roll back the slice (git) and report the failure.
-2. Shows the diff to the user for approval before the next slice.
+1. Runs the **feature's test suite** (not the full repo suite) to confirm green. Scope the run to the test class(es) or test directory that cover the feature being refactored — e.g., `phpunit --filter InvoiceTaxTest` or `pytest tests/invoicing/`. If red, roll back the slice (`git checkout -- .`) and report the failure — do not proceed to the next slice.
+2. Shows the diff to the user for approval.
+3. If approved, make an **atomic git commit** for this slice. The commit message should name the pattern/anti-pattern applied and the target file(s), e.g., `refactor: extract service from CreateInvoiceController (fat-controller)`. This gives the user a clean, reviewable history where each refactor is its own commit — easy to revert individually if a problem surfaces later.
 
-**Second human gate:** user reviews each slice before the next one dispatches.
+**Second human gate:** user reviews each slice before the commit and before the next slice dispatches.
 
 ### Step 6 — Tempering handoff
 
 When all approved slices are done and green, write a short summary of what was refactored and which patterns/anti-patterns were applied. That summary feeds the Tempering stage (knowledge capture) — typically, new patterns or anti-patterns that emerged during the refactor get written to `.aiforging/patterns/` or `.aiforging/anti-patterns/` as new `.md` files, one per pattern, following the format in `conventions/refactoring/README.md`.
 
+Offer the user a final verification step:
+
+> All slices are done and each passed the feature's test suite individually. You may want to run the **full repo test suite** to catch any cross-feature regressions from the refactored code. You can start reviewing the per-slice commits while the suite runs — each refactor is its own atomic commit, individually revertible if the full suite surfaces something.
+
+This is a recommendation, not a gate. The user can start auditing the diffs immediately. If they want to run the suite, they can do it in parallel. Do not block on this — proceed to the Tempering summary either way.
+
 ## Safety rules (hard refusals)
 
-- **No refactor without green tests.** If the test suite is not passing at the start, stop.
+- **No refactor without green tests.** If the feature's test suite is not passing at the start, stop.
 - **No refactor of untested code.** If the target file has no tests, stop and tell the user to run Fire first.
 - **No weakening tests.** If a test appears to block a refactor, the refactor is wrong, not the test.
 - **No cross-boundary refactors without explicit approval.** Changing a public API, a database schema, or a cross-module contract is an architectural decision, not a refactor.
@@ -166,11 +173,15 @@ Hammer skill:
   3. Presents ranked list; user approves all three slices.
   4. Dispatches subagent A with extract-service-from-controller.md and
      CreateInvoiceController.php:45-120. Waits for report.
-  5. Test suite runs: green. Shows diff. User approves.
+  5. Test suite runs: green. Shows diff. User approves. Commits:
+     "refactor: extract service from CreateInvoiceController (fat-controller)"
   6. Dispatches subagent B with primitive-obsession.md and TaxRate usages.
      Waits for report.
-  7. Test suite runs: green. Shows diff. User approves.
-  8. Writes summary to plan.md. Tempering stage begins.
+  7. Test suite runs: green. Shows diff. User approves. Commits:
+     "refactor: introduce TaxRate value object (primitive-obsession)"
+  8. All slices done. Suggests running the full suite once more as a
+     final check — user can start reviewing commits in parallel.
+  9. Writes summary to plan.md. Tempering stage begins.
 ```
 
 ---
