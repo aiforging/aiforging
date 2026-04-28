@@ -630,7 +630,13 @@ The rework touched every framework file that references the pattern library or w
 
 6. **`CHANGELOG.md` created** with v0.1.0 baseline and v0.2.0 entries.
 
-7. **`README.md` updated** — status section reflects v0.2.0, version reference in "Who this is for" updated, v0.2.0 changes listed.
+7. **`README.md` updated** — status section reflects v0.2.0, version reference in "Who this is for" updated, v0.2.0 changes listed. New "Upgrading" section added with light upgrade (`/aiforging:update-targets`) and clean reinstall (`uninstall → update → setup`) paths.
+
+8. **`commands/uninstall.md` updated** for v0.2.0 compatibility — Scenario B target discovery now scans two levels deep to catch both service-wrapper placements and pre-v0.2.0 placements. New edge cases documented for service wrapper cleanup and missing `~/.claude/aiforging.json`.
+
+9. **Atomic git commits per Hammer slice** — `skills/hammer-refactor/SKILL.md` Step 5 now commits after each approved slice with a descriptive message (e.g., `refactor: extract service from CreateInvoiceController (fat-controller)`). Each refactor is individually revertible. Example invocation updated to show commit messages.
+
+10. **Scoped test runs throughout the forge cycle** — both Fire and Hammer now prescribe running only the feature's test class/directory during iterative loops, not the full repo suite. `conventions/tdd/fire-red-green-refactor.md` gained a new "Scoped test runs" section. `skills/hammer-refactor/SKILL.md` Steps 4 and 5 updated with concrete examples (`--filter`, directory path). Full suite is recommended once at end of Fire and optionally (non-blocking) after all Hammer slices complete.
 
 **Parked for future:**
 
