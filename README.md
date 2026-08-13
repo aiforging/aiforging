@@ -1,8 +1,14 @@
 # AI Forging
 
-> A structured AI-assisted development framework for producing robust, maintainable codebases. Test-first, pattern-driven refactoring, domain-driven architecture — shipped as a Claude Code plugin.
+> A structured framework for **agentic software development** — test-first, pattern-driven refactoring, domain-driven architecture. Shipped as a Claude Code plugin. The counterpoint to vibe coding.
 
 AI Forging is a counterpoint to "vibe coding." The thesis: AI is incredibly powerful at generating code, but without structure, every feature shipped makes the codebase worse. AI Forging provides that structure as three stages of a metallurgical forge: **Fire → Hammer → Tempering.**
+
+**Going agentic is easy. Going agentic without wrecking quality is the hard part.** Autonomy (how big a unit of work you hand the AI) and discipline (how much spec, testing, and review wrap it) are two different axes. Cross them and you get four very different places to build — and AI Forging is the top-right: whole units of work, forged.
+
+<p align="center">
+  <img src="docs/quadrant.png" alt="A map for agentic software development — autonomy versus discipline. Vibe Coding (low/low), Disciplined AI-Assist (high discipline, low autonomy), Agentic Vibe Coding (low discipline, high autonomy), and AI Forging (high discipline, high autonomy — the goal)." width="720"/>
+</p>
 
 - **Fire** — AI-powered TDD. Tests are written first and capture intent before a single line of implementation exists. Red, Green, Refactor. *Uses the [`superpowers` plugin](https://github.com/obra/superpowers)'s `test-driven-development` skill.*
 - **Hammer** — Automated pattern-driven refactoring. The `hammer-refactor` skill dispatches one fresh-context subagent per pattern or anti-pattern file against the session's changed files, in parallel. *Built on top of `superpowers:subagent-driven-development`.*
