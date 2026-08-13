@@ -237,9 +237,9 @@ The uninstall is designed to preserve your work: `docs/features/` (all your spec
 
 ## Governance
 
-**AI Forges. Humans decide.** Four human gates, always:
+**AI Forges. Humans decide.** Four human gates, always — checkpoints on completed work, not per-step sign-offs:
 
-1. Test review and approval.
+1. Review the tests — do they capture your intent? (At feature completion, not one test at a time.)
 2. Code review at the PR level.
 3. Architecture decisions (which refactors to run, which patterns to add).
 4. Deployment authorization.
