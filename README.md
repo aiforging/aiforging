@@ -38,7 +38,7 @@ Once your workspace and targets are set up, these are the commands you'll reach 
 
 Software crafters with **established codebases** who already feel the pain of AI-generated sprawl and are ready to adopt an opinionated workflow. Teams whose backends are built around a Data Mapper ORM (Doctrine, Hibernate, Entity Framework Core, TypeORM, MikroORM) will get the most value out of the box. Teams on Active Record stacks (Eloquent, Rails) can still adopt the framework with caveats documented in the conventions.
 
-AI Forging is **not for greenfield projects** in v0.2. A separate `/aiforging:new-project` command may come later. It is also **not descriptive** — it is prescriptive, and it will tell you to refactor things. That's the point.
+AI Forging is **not descriptive** — it is prescriptive, and it will tell you to refactor things. That's the point.
 
 ## The three-layer model
 
@@ -270,7 +270,6 @@ v0.2.0 — **research preview.** The plugin structure, conventions library, two-
 
 - `/aiforging:execute-plan` — walks through a workspace feature plan with per-step approval gates via `superpowers:executing-plans` and `superpowers:subagent-driven-development`.
 - Dedicated stack adapters for Laravel, Spring/Java, .NET/C#, Node/TS.
-- `/aiforging:new-project` — greenfield scaffolding with stack templates.
 - A community marketplace of patterns contributed by users.
 
 Contributions welcome once the extension-point contracts stabilize — for now, the best way to contribute is to try it on a real codebase and open issues about what broke.
