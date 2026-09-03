@@ -5,7 +5,7 @@ This directory is the portable, prescriptive layer of the AI Forging framework. 
 The conventions are organized into four groups:
 
 - **architecture/** — how we structure code: Domain-Driven Hexagonal layout, Single-Action Controllers, Repositories, DTOs / Value Objects, naming.
-- **tdd/** — how we test-drive: the Fire (Red-Green-Refactor) loop, the test-harness capability contract, how we test Repositories against a real isolated schema.
+- **tdd/** — how we test-drive: the Fire (Red-Green-Refactor) loop, the **feature test suite** rule (one named suite per feature; never run the full repository suite during the loop), the test-harness capability contract, and how we test Repositories against a real isolated schema.
 - **refactoring/** — the pattern and anti-pattern library. One `.md` per pattern. New patterns can be added at any time; the framework's post-TDD refactor pass iterates each one independently via a fresh-context sub-agent, so adding the 50th pattern costs no more than the 5th.
 - **frontend-testing/** — optional. Playwright-oriented guidance for integration tests between frontend and backend. Not required by the core framework.
 

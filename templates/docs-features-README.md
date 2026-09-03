@@ -1,3 +1,4 @@
+<!-- AI Forging workspace marker: docs/features -->
 <!--
   This file is copied verbatim into <forge-workspace>/docs/features/README.md
   during `/aiforging:setup` phase A (init-workspace).
@@ -26,7 +27,10 @@ docs/features/
 └── <feature-name>/             # one folder per feature; kebab-case names
     ├── spec.md                 # WHAT and WHY
     ├── plan.md                 # HOW, in subagent-friendly slices
-    └── notes.md                # optional, free-form notes
+    ├── testing.md              # human QA checklist — required if the feature has a UI surface
+    ├── notes.md                # optional, free-form notes
+    ├── ai-testing/             # written by /aiforging:browser-testing — numbered runs
+    └── ai-reviews/             # written by /aiforging:review-loop — numbered rounds
 ```
 
 ### Nested shape (multi-work-item features)
@@ -34,13 +38,17 @@ docs/features/
 ```
 docs/features/<feature-name>/
 ├── overview.md                 # WHAT and WHY at the feature level; lists work items and order
+├── testing.md                  # ONE feature-level QA checklist, ordered by work item
+├── summary.md                  # optional; written AFTER implementation, for 3+ work items
 ├── 01-<work-item-name>/
 │   ├── spec.md                 # WHAT and WHY for this work item
 │   └── plan.md                 # HOW for this work item
 ├── 02-<work-item-name>/
 │   ├── spec.md
 │   └── plan.md
-└── notes.md                    # optional, feature-level free-form notes
+├── notes.md                    # optional, feature-level free-form notes
+├── ai-testing/                 # written by /aiforging:browser-testing
+└── ai-reviews/                 # written by /aiforging:review-loop
 ```
 
 Work items use a numeric two-digit prefix (`01-`, `02-`, …) that reflects logical dependency order. Don't nest if there's only one work item; don't flatten if there are several.
@@ -53,12 +61,55 @@ The correct shape is **flat**: one spec covering holistic behavior across both r
 
 **Nested is for sequential phases, not layer splits** — e.g., a data migration where Phase 1 is dual-write and Phase 2 is cutover. Each phase has its own timeline, approval gate, and rollback story.
 
+## The files in a feature folder
+
+| File | Required? | Written when | Job |
+|---|---|---|---|
+| `spec.md` | always | before planning, living | **WHAT and WHY.** The thing the human approves. |
+| `plan.md` | always | after the spec is locked, living | **HOW**, in subagent-dispatchable slices. |
+| `overview.md` | nested shape only | when the second work item is scoped | Work items, their order, and what blocks what. |
+| `testing.md` | **whenever the feature has a UI surface** | alongside the plan, before implementation ends | A human QA checklist — concrete steps someone clicks through. |
+| `summary.md` | optional; 3+ work items | *after* implementation is complete | What got built, what was deferred, architecture highlights. |
+| `notes.md` | optional | any time | Everything that would clutter the other five. |
+
+`ai-testing/NN/` and `ai-reviews/NN/` are machine-written run records — numbered, append-only, never hand-edited.
+
+### `testing.md` — required for every feature with a UI surface
+
+A UI-driven QA checklist: concrete steps a human clicks through in the running app, as checkboxes. Cover **access and gating**, then **the happy path**, then **key edge cases** — in that order. Mark items only a human can judge (visual, "reads clearly", theme, typography) with 👤.
+
+For a nested feature there is still exactly **one** `testing.md` at the feature level, ordered by work item in dependency order. Research-only work items and purely internal or pipeline changes with no UI surface may skip it — but say so in the spec rather than silently omitting it.
+
+Write it **before** implementation finishes. A checklist written afterwards describes what was built; one written from the spec describes what was supposed to be built, and the gap between those is the bug.
+
+It is also the required input to `/aiforging:browser-testing`, which refuses to run without it and will not invent one.
+
+```markdown
+# Testing — <feature name>
+
+> 👤 = human judgement required.
+
+## Access and gating
+- [ ] A user without `<permission>` gets a 403 on `/the/route` and sees no nav entry
+
+## Happy path
+- [ ] Create a <thing> with valid input; it appears in the list with the right totals
+- [ ] 👤 The confirmation screen reads clearly to someone who did not build this
+
+## Edge cases
+- [ ] Empty state renders the "no results" copy, not a blank table
+```
+
+### `summary.md` — after the fact, big features only
+
+Three or more work items: once implementation is done, write the snapshot — work-item table, what was built, what was deferred and why, the two or three architecture decisions a future reader would otherwise reconstruct from checkbox history. Optional, and worthless if written early. Do not create it preemptively.
+
 ## Planning workflow (four steps)
 
 1. **Create spec.md from the initial prompt.** Draft a **Summary** section capturing the user's ask in your own words. Stop. Confirm the Summary with the user before writing anything else. This is a hard checkpoint.
 2. **Grouped clarifying questions.** Interview in themed rounds of 3–5 questions each, with a heading per round. Skip questions whose answer is obvious from the affected repos' `.aiforging/architecture/`. Flag cross-repo contracts, schema changes, and new domain modules as architectural decisions so the plan can attach a `[gate: architecture]` later.
 3. **Architecture review.** Before writing plan.md, read the `.aiforging/architecture/` conventions and root `CLAUDE.md` of **every** affected target repo. Also consult each target's `.aiforging/patterns/`, `.aiforging/anti-patterns/`, and `.aiforging/ANALYSIS.md` if present. This is non-negotiable: plans with incorrect paths produce incorrectly-placed code across every subagent that dispatches against them.
-4. **Write plan.md in the slice format.** Every Fire sequence must end with a closing `[hammer]` slice that dispatches `hammer-refactor` against the changed files. Human approval is required before any slice dispatches.
+4. **Write plan.md in the slice format.** Every Fire sequence must end with a closing `[hammer]` slice that dispatches `hammer-refactor` against the changed files. The plan must also **name the feature's test suite** and repeat the scoped-run rule (below). Decide here whether the feature has a UI surface and therefore needs `testing.md` — and if it does, draft it now, from the spec. Human approval is required before any slice dispatches.
 
 ## spec.md — the WHAT and WHY
 
@@ -84,12 +135,37 @@ Produced by the plan phase of `superpowers:writing-plans` using the AI Forging *
 - **Target repo**: <repo name as registered in additionalDirectories>
 - **Touches**: <path/to/file.ext> (or "new file: <path>")
 - **Why**: <one sentence>
-- **Test**: <test name or file; for Fire, the test we will write; for Hammer, the suite that must stay green>
+- **Test**: <for Fire, the test we will write; for Hammer, what must stay green — always inside the feature suite named at the top of the plan>
 - **Pattern reference** (Hammer only): <.aiforging/patterns/name.md or .aiforging/anti-patterns/name.md>
 - **Gates**: none | [gate: architecture] | [gate: schema] | [gate: contract]
 - **Prompt for subagent**:
   > <the actual prompt to hand to a fresh-context subagent>
+  > Run ONLY the feature suite `<suite-name>` via `<run command>`. NEVER run the full
+  > repository suite. If you believe it must run, stop and say so instead of running it.
 ```
+
+### Every plan names one test suite
+
+Open every plan with this block, before Slice 1:
+
+```markdown
+## Test suite
+
+- **Name**: `invoice-tax`
+- **Run**: `./bin/phpunit --testsuite invoice-tax`
+- **Registered in**: `phpunit.xml.dist` (target repo: backend)
+
+Every slice in this plan runs ONLY this suite. No slice, and no subagent dispatched from a
+slice, runs the full repository suite — not to confirm a slice, not at the end of a sequence,
+not to make sure nothing broke. If you believe the full suite must run, stop and ask.
+The human runs the full suite themselves, once, after implementation is complete.
+```
+
+**One suite per feature, not per work item.** Register it before the first test is written; every later work item augments the same suite, so one fast command always exercises the whole feature.
+
+The scoped-run instruction is repeated inside every slice's subagent prompt on purpose. "Run everything to prove I'm done" is the strongest default an agent has, and a fresh-context subagent only reliably reads the slice it was handed.
+
+**This trades a real risk for a fast loop.** A change made here can break another feature and no scoped run will see it. So every plan ends with an explicit closing item — not a slice, a **handoff**: tell the human that every run was scoped, give them the full-suite command, and let them run it before opening a PR.
 
 ## Living documents
 
@@ -106,7 +182,13 @@ spec.md and plan.md evolve as the feature is implemented. Rules:
 - **Feature folders are single-purpose.** If a feature grows two heads, split it (or switch to the nested shape).
 - **Feature folders are stable once created.** If the name was wrong, add a new folder — don't rename. History matters.
 - **No source code in feature folders.** Source code lives in target repos, reached via `additionalDirectories`.
+- **`ai-testing/` and `ai-reviews/` are numbered and append-only.** A re-run is a new folder; never overwrite an earlier run's record.
+- **When scope is ambiguous, start single-target and split later.** Feature folders are stable once created, so adding a folder is always cheaper than renaming one.
 - **Fire before Hammer, always.** A `[hammer]` slice never runs before its related `[fire]` slices are green.
+- **One named test suite per feature, and nothing else runs.** Never the full repository suite — not during Fire, not during Hammer, not to "make sure." Ask the human if you think it must run.
+- **Always hand the full suite to the human at the end of implementation.** In words, every time, even when the feature was small.
+- **`testing.md` is one per feature**, never one per work item, and it is written before implementation ends.
+- **`summary.md` is written after implementation**, never before.
 - **Every Fire sequence ends with a closing `[hammer]` slice.** No sequence is "done" until the Hammer pass has run against the changed files.
 - **Human gates are human gates.** Slices marked `[gate: ...]` require explicit user approval before dispatching to a subagent.
 

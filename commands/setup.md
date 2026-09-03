@@ -1,5 +1,5 @@
 ---
-description: Interactive setup for the AI Forging framework. Phase A bootstraps a forge workspace in an empty directory (central CLAUDE.md, docs/features/, split .claude/settings.json + settings.local.json, .gitignore, capture-pattern skill, plugin dependency check). Phase B onboards target projects into an existing workspace (detect, analyze, register as additionalDirectories, copy conventions, seed pattern library, optionally install the hammer-refactor + capture-pattern skills bundle, optionally git-init the workspace).
+description: Interactive setup for the AI Forging framework. Phase A bootstraps a forge workspace in an empty directory (central CLAUDE.md, docs/features/, split .claude/settings.json + settings.local.json, .gitignore, capture-pattern skill, the optional browser-testing + review-loop verification skills, plugin dependency check). Phase B onboards target projects into an existing workspace (detect, analyze, register as additionalDirectories, copy conventions, seed pattern library, optionally install the hammer-refactor + capture-pattern skills bundle, optionally git-init the workspace).
 user_invocable: true
 ---
 
@@ -69,6 +69,7 @@ Before running any detection, load the following into your context without summa
 
 - **The three-layer model.** You are running the AI Forging plugin *as an end user*, not as a plugin developer. There are three distinct locations with different lifecycles: the **plugin source repo** (wherever `${CLAUDE_PLUGIN_ROOT}` resolves to — read-only from this command's perspective, NEVER modify), the **forge workspace** (the cwd if Phase A is running, or the already-initialized workspace the user is running Phase B from), and each **target repo** registered under `permissions.additionalDirectories` in the workspace's `settings.local.json`. Every write in this command goes to either the forge workspace or a target repo. No write EVER goes to the plugin source.
 - **The slice plan format.** When Phase B Step B.9 drafts a feature plan, write it in the AI Forging slice format documented at `${CLAUDE_PLUGIN_ROOT}/conventions/features/README.md` (read-only reference — read it on demand when you reach Step B.9, do not copy it).
+- **The artifact manifest.** `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/artifacts.json` is the source of truth for everything this command copies out of the plugin: what, to which scope, under which target roles, and with what update policy. Read it before any install step. If you find yourself about to copy something that is not listed there, stop — an unlisted artifact installs on fresh setups and is invisible to `/aiforging:update-targets`, so existing users never receive it. Add it to the manifest first.
 - **Do NOT read or reference `${CLAUDE_PLUGIN_ROOT}/PLAN.md`.** That file is the plugin author's development log, not an end-user resource. Reading it pollutes end-user runs with plugin-authoring context; writing to it would mutate the plugin source repo, which this command is forbidden from doing.
 
 ---
@@ -268,6 +269,30 @@ Whatever source the user confirms, pass the correct `<name>@<source>` identifier
 
 After seeding, show the user the tree that was created — call out explicitly that `settings.json` and `settings.local.json` are DIFFERENT files serving DIFFERENT purposes, and that `.gitignore` will protect the local file once the workspace becomes a git repo. Then confirm before proceeding.
 
+### Step A.2.4 — Offer the optional verification skills
+
+Two skills run **after** a feature is implemented, at the workspace level, and both are optional. Offer them together, with default Y, and explain what each does — a user who has never seen them will otherwise decline on principle:
+
+> **Two optional verification skills.** The forge — Fire, Hammer, Tempering — builds the feature. These two check it afterwards, and neither is required.
+>
+> 1. **`browser-testing`** — walks a feature's `testing.md` QA checklist in a real browser against your local environment. It marks the items only a human can judge (visual, "reads clearly") so you can work those in parallel, walks the rest, records one line of evidence per step, and reports what diverged. **It fixes nothing**, by design: a failing step means the product and the spec disagree, and deciding which one is wrong needs a person.
+>
+> 2. **`review-loop`** — runs rounds of code review across every repo a feature touched, triages each finding against the source (roughly a third of review findings describe deliberate behavior), classifies them, dispatches fixes serialized per repo, and stops on a real stop condition instead of a finding count.
+>
+> Both live at the workspace level, because their inputs do — `testing.md`, the feature folder, and the list of target repos. Install them? [Y/n]
+
+If accepted:
+
+```bash
+mkdir -p ./.claude/skills/browser-testing ./.claude/skills/review-loop
+cp ${CLAUDE_PLUGIN_ROOT}/skills/browser-testing/SKILL.md ./.claude/skills/browser-testing/SKILL.md
+cp ${CLAUDE_PLUGIN_ROOT}/skills/review-loop/SKILL.md     ./.claude/skills/review-loop/SKILL.md
+```
+
+If declined, say that `/aiforging:update-targets` will offer them again later, and move on. Do not re-ask in this run.
+
+**The manifest is the source of truth for what gets copied where.** `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/artifacts.json` lists every artifact the plugin installs, its destination per scope, and its update policy. If you are adding an install step to this command and it is not in the manifest, add it there first — `/aiforging:update-targets` reads the manifest, so an artifact missing from it will install on fresh setups and never reach existing users.
+
 ### Step A.2.5 — Register the workspace in the run-anywhere pointer file
 
 This step writes a small pointer file OUTSIDE the current working directory — to `~/.claude/aiforging.json` in the user's home directory. **This is the only step in the entire setup that writes outside cwd**, and some users have strong feelings about tools that reach into global user config space. The consent must be explicit and front-loaded.
@@ -403,6 +428,8 @@ Files created:
   ./.claude/settings.json                          ← committed: enabledPlugins only
   ./.claude/settings.local.json                    ← gitignored: additionalDirectories (empty)
   ./.claude/skills/capture-pattern/SKILL.md        ← Tempering feedback loop
+  ./.claude/skills/browser-testing/SKILL.md        ← optional: walk testing.md in a browser
+  ./.claude/skills/review-loop/SKILL.md            ← optional: rounds of review, triage, fix
   ./.aiforging/patterns/                           ← shared-tier seeded patterns
   ./.aiforging/anti-patterns/                      ← shared-tier seeded anti-patterns
   ./.gitignore                                     ← protects settings.local.json + backups
@@ -438,6 +465,8 @@ Workspace files:
   ./.claude/settings.json                          ← committed: enabledPlugins only
   ./.claude/skills/capture-pattern/SKILL.md        ← Tempering feedback loop
   ./.claude/skills/hammer-refactor/SKILL.md        ← executable Hammer stage
+  ./.claude/skills/browser-testing/SKILL.md        ← optional: walk testing.md in a browser
+  ./.claude/skills/review-loop/SKILL.md            ← optional: rounds of review, triage, fix
   ./.aiforging/patterns/                           ← shared-tier seeded patterns
   ./.aiforging/anti-patterns/                      ← shared-tier seeded anti-patterns
   ./.gitignore                                     ← protects settings.local.json + backups
@@ -856,8 +885,17 @@ Next:
   3. When ready, run the hammer-refactor skill against the target repo to begin
      executing [hammer] slices. Fire slices (if any) go through
      superpowers:executing-plans first.
-  4. Re-run /aiforging:setup from this workspace to onboard another target repo.
-  5. If you initialized a git repo and want to push it, create the remote repo
+  4. After a feature is built, two optional verification stages are available
+     from this workspace:
+       /aiforging:browser-testing  — walks the feature's testing.md in a real
+                                     browser, reports what diverged, fixes nothing.
+                                     Work the 👤 items yourself in parallel.
+       /aiforging:review-loop      — rounds of review, triage, and fix across
+                                     every repo the feature touched.
+     Run browser-testing first. Then run your full test suite yourself — no
+     AI Forging stage ever runs it.
+  5. Re-run /aiforging:setup from this workspace to onboard another target repo.
+  6. If you initialized a git repo and want to push it, create the remote repo
      at your preferred destination (GitHub, Bitbucket, etc.) and run:
          git remote add origin <suggested-url>
          git push -u origin main

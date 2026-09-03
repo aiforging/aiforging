@@ -1,3 +1,8 @@
+---
+description: Cleanly remove every AI Forging artifact from a forge workspace and its onboarded target repos — conventions, skills, seeded patterns, and settings entries — while preserving everything you created. Your feature folders (specs, plans, testing.md, run records) and user-captured patterns are never touched. Diff-and-ask on customized files; idempotent; never commits to git.
+user_invocable: true
+---
+
 # /aiforging:uninstall
 
 **Purpose:** Cleanly remove AI Forging artifacts from the forge workspace and all onboarded target repos, while preserving user-created content (feature specs/plans, user-captured patterns, customized files).
@@ -92,6 +97,13 @@ These are copies of plugin content, regenerable by re-running `/aiforging:setup`
 - `<target>/.aiforging/README.md` — refactoring docs (plugin copy)
 - `<target>/.claude/skills/hammer-refactor/SKILL.md` — skill copy
 - `<target>/.claude/skills/capture-pattern/SKILL.md` — skill copy
+
+**Legacy locations — remove only if present.** Onboardings from before the two-tier model put things in a target that current onboardings never create. Check for them, remove them if found, and say so in the summary; do not report their absence as a problem:
+
+- `<target>/.aiforging/README.md` — the pattern-library README. It now lives only at the workspace shared tier.
+- `<target>/.aiforging/patterns/*.md` and `anti-patterns/*.md` **carrying `seeded: true` frontmatter** — seeded patterns now live only in the shared tier. Files in those directories **without** `seeded: true` are user captures and are never removed, in any scenario.
+
+**Derive this list from `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/artifacts.json` rather than from memory.** Every artifact the plugin installs is listed there with its scope and destination; anything in the manifest's `user_owned` list is never removed. A hardcoded list here goes stale exactly the way it did in `/aiforging:update-targets`, and the failure mode is worse — leftover files after an uninstall the user believes was clean.
 - Seeded patterns in `<target>/.aiforging/patterns/` and `<target>/.aiforging/anti-patterns/` — files where YAML frontmatter contains `seeded: true`
 
 ### Category B — User-created (never remove)
@@ -110,16 +122,18 @@ Target: /abs/path/to/backend
 
   REMOVE (plugin-sourced):
     .aiforging/architecture/              (5 files)
-    .aiforging/tdd/                       (3 files)
+    .aiforging/tdd/                       (4 files)
     .aiforging/subagent-orchestration/    (1 file)
     .aiforging/CLAUDE.md                  (pointer)
-    .aiforging/ANALYSIS.md                (regenerable)
-    .aiforging/README.md                  (plugin copy)
-    .aiforging/patterns/extract-service-from-controller.md  (seeded)
-    .aiforging/anti-patterns/fat-controller.md              (seeded)
-    .aiforging/anti-patterns/primitive-obsession.md         (seeded)
+    .aiforging/ANALYSIS.md                (analyzer output — regenerable)
     .claude/skills/hammer-refactor/       (skill copy)
     .claude/skills/capture-pattern/       (skill copy)
+
+  REMOVE (legacy — only present on pre-two-tier onboardings):
+    .aiforging/README.md                                    (now workspace-only)
+    .aiforging/patterns/extract-service-from-controller.md  (seeded; now workspace-only)
+    .aiforging/anti-patterns/fat-controller.md              (seeded; now workspace-only)
+    .aiforging/anti-patterns/primitive-obsession.md         (seeded; now workspace-only)
 
   KEEP (your work):
     .aiforging/patterns/use-query-bus-for-reads.md          (user-captured)
@@ -140,6 +154,8 @@ Target: /abs/path/to/backend
 ### Category A — Plugin-sourced (safe to remove)
 
 - `./.claude/skills/capture-pattern/SKILL.md` — workspace skill copy
+- `./.claude/skills/browser-testing/SKILL.md` — workspace skill copy (if installed)
+- `./.claude/skills/review-loop/SKILL.md` — workspace skill copy (if installed)
 - `./.aiforging/patterns/*.md` where `seeded: true` — seeded shared-tier patterns
 - `./.aiforging/anti-patterns/*.md` where `seeded: true` — seeded shared-tier anti-patterns
 - `./.aiforging/README.md` — refactoring docs (plugin copy)
@@ -147,7 +163,7 @@ Target: /abs/path/to/backend
 
 ### Category B — User-created (never remove)
 
-- `./docs/features/` — entire directory tree. Specs, plans, all of it. **This is the user's intellectual work.**
+- `./docs/features/` — entire directory tree. Specs, plans, `testing.md` QA checklists, `notes.md`, `summary.md`, and the `ai-testing/` and `ai-reviews/` run records. All of it. **This is the user's intellectual work, and the run records are evidence of what was tested and decided.**
 - `./.aiforging/patterns/*.md` where `seeded: true` is NOT present — user-captured shared patterns
 - `./.aiforging/anti-patterns/*.md` where `seeded: true` is NOT present — user-captured shared anti-patterns
 
@@ -254,7 +270,7 @@ Targets cleaned: 2
   /abs/path/to/frontend — 5 plugin files removed
 
 Workspace cleaned:
-  Plugin skills removed: capture-pattern
+  Plugin skills removed: capture-pattern, browser-testing, review-loop
   Seeded patterns removed: 3
   User patterns kept: 1
   Settings entries removed: aiforging (superpowers kept)
@@ -310,7 +326,7 @@ If all seeded patterns are removed and no user-captured patterns exist, the `.ai
 
 ### Other plugins sharing `.claude/skills/`
 
-Before removing `.claude/skills/hammer-refactor/` or `.claude/skills/capture-pattern/`, check that no other plugin contributed files to those directories. In practice this is unlikely (skill directory names are plugin-specific), but if unexpected files exist in a skill directory, warn and skip rather than deleting blindly.
+Before removing any `.claude/skills/<name>/` directory the plugin installed (`hammer-refactor`, `capture-pattern`, `browser-testing`, `review-loop` — the authoritative list is `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/artifacts.json`), check that no other plugin contributed files to those directories. In practice this is unlikely (skill directory names are plugin-specific), but if unexpected files exist in a skill directory, warn and skip rather than deleting blindly.
 
 ### Service wrapper targets (v0.2.0+)
 

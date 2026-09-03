@@ -16,6 +16,13 @@ AI Forging is a counterpoint to "vibe coding." The thesis: AI is incredibly powe
 
 Each iteration through the cycle leaves the codebase stronger than it started.
 
+Two **optional** stages run after the forge, once a feature is built to presumed-working. Neither generates code:
+
+- **`browser-testing`** — walks the feature's `testing.md` QA checklist in a real browser. It marks the items only a human can judge so you can work those in parallel, walks the rest, records one line of evidence per step, and reports what diverged. **It fixes nothing, deliberately.** A failing step is evidence that the product and the spec disagree; it is not evidence about which one is wrong, and deciding that needs a person.
+- **`review-loop`** — rounds of code review across every repo the feature touched, with each finding triaged against the source before it is accepted (in practice about a third of review findings describe deliberate behavior), classified, and fixed by serialized agents. It stops on a real stop condition rather than on a finding count.
+
+Run `browser-testing` first. Six rounds of review cannot find a feature that works exactly as written and is wrong.
+
 <p align="center">
   <img src="docs/feature-workflow.svg" alt="Building a Feature with AI Forging — workflow diagram showing Fire, Hammer, and Tempering stages with human gates" width="680"/>
 </p>
@@ -29,6 +36,10 @@ Once your workspace and targets are set up, these are the commands you'll reach 
 **Reviewing code and catching a lesson.** You're pair-programming with Claude, spot something less than ideal, and explain the fix. Claude's `capture-pattern` skill activates and offers to persist the lesson as a new pattern or anti-pattern file — one correction, one file, immediately available on every future Hammer pass. It'll ask whether the pattern applies to just this repo or all same-stack targets.
 
 **Hammer passes run automatically.** At the end of each TDD cycle, `hammer-refactor` auto-triggers against the changed files — one fresh-context subagent per applicable pattern, parallel, isolated, no drift. You review each proposal and accept or reject. (You can also invoke it manually against any set of files if you want a targeted pass outside the normal flow.)
+
+**Verifying a feature you just built.** Two optional stages, in this order. `/aiforging:browser-testing` walks the feature's `testing.md` in a real browser against your local environment while you work the 👤 items — the ones judged by eye — in parallel; it reports what diverged and changes nothing. Then `/aiforging:review-loop` runs rounds of review, triage, and fix across every repo the feature touched. Neither replaces your own pass, and neither runs your full test suite.
+
+**Running your full test suite.** No AI Forging stage ever does. Every Fire, Hammer, and fix agent runs one named suite scoped to the feature in scope, because a fast loop is the whole point — and the skills will tell you, in words, when implementation is done and it is your turn to run everything.
 
 **Auditing a codebase you just inherited.** Onboard it with `/aiforging:setup`, and the architecture analyzer produces a scored assessment with prioritized findings. A structured starting point instead of grepping around.
 
@@ -126,7 +137,7 @@ For multi-repo workspaces, either continue into Phase B at the end of Phase A or
 
 Phase B is re-runnable. Each re-run adds another target to the same workspace.
 
-**`/aiforging:setup` will never execute any refactors.** The v0.1.0 boundary is explicit: install + analyze + propose plan. Running the actual Hammer pass is a separate, explicit step via the `hammer-refactor` skill once a plan has been approved. A future `/aiforging:execute-plan` command will orchestrate plan execution with per-step approval gates.
+**`/aiforging:setup` will never execute any refactors.** The boundary is explicit and has held since v0.1.0: install + analyze + propose plan. Running the actual Hammer pass is a separate, explicit step via the `hammer-refactor` skill once a plan has been approved. A future `/aiforging:execute-plan` command will orchestrate plan execution with per-step approval gates.
 
 ### A note on "install vs enable"
 
@@ -141,11 +152,18 @@ The enablement block is identifier-based — it *points at* a plugin but doesn't
 
 ```
 aiforging/
-├── .claude-plugin/                 # plugin manifest + marketplace definition
+├── .claude-plugin/
+│   ├── plugin.json                 # plugin manifest
+│   ├── marketplace.json            # marketplace definition
+│   └── artifacts.json              # what gets copied where, and how it updates
 ├── commands/
 │   ├── setup.md                    # /aiforging:setup (Phase A + Phase B)
 │   ├── new-feature.md              # /aiforging:new-feature — daily-driver feature scaffolding
-│   └── forge.md                    # /aiforging:forge — thin alias for new-feature
+│   ├── forge.md                    # /aiforging:forge — thin alias for new-feature
+│   ├── browser-testing.md          # /aiforging:browser-testing — pointer to the skill
+│   ├── review-loop.md              # /aiforging:review-loop — pointer to the skill
+│   ├── update-targets.md           # /aiforging:update-targets — manifest-driven propagation
+│   └── uninstall.md                # /aiforging:uninstall — clean removal, preserves your work
 ├── scripts/                        # PEP 723 single-file Python scripts (run under uv or python3)
 │   ├── detect-project.py           #   read-only stack detection (recurses for monorepos)
 │   ├── configure-directories.py    #   manages permissions.additionalDirectories
@@ -156,17 +174,22 @@ aiforging/
 │   │   └── SKILL.md
 │   ├── hammer-refactor/            # executable Hammer stage, copied into each target repo
 │   │   └── SKILL.md
-│   └── capture-pattern/            # reactive Tempering feedback loop
-│       └── SKILL.md                #   installed in both workspace and each target repo
+│   ├── capture-pattern/            # reactive Tempering feedback loop
+│   │   └── SKILL.md                #   installed in both workspace and each target repo
+│   ├── browser-testing/            # optional — walks testing.md in a real browser, fixes nothing
+│   │   └── SKILL.md                #   workspace-level
+│   └── review-loop/                # optional — rounds of review, triage, and fix
+│       └── SKILL.md                #   workspace-level
 ├── templates/                      # bootstrap templates for forge workspace init (Phase A)
 │   ├── workspace-CLAUDE.md
 │   ├── workspace-README.md
-│   └── docs-features-README.md
+│   ├── docs-features-README.md
+│   └── feature-testing.md          # testing.md skeleton, copied per feature
 └── conventions/                    # library copied into each target repo as .aiforging/
     ├── CLAUDE.md.template          #   per-target CLAUDE.md pointer
     ├── features/                   #   feature-folder + slice-plan convention
     ├── architecture/               #   Domain-Driven Hexagonal, Single-Action Controllers, Repositories, DTOs, Naming
-    ├── tdd/                        #   Fire loop (delegates to superpowers), harness capability contract, repository testing
+    ├── tdd/                        #   Fire loop (delegates to superpowers), the feature-test-suite rule, harness capability contract, repository testing
     ├── subagent-orchestration/     #   subagent dispatch conventions (one shot per pattern)
     ├── refactoring/                #   two-tier pattern library + Tempering feedback format
     │   ├── patterns/               #     one file per pattern (applies-to frontmatter for shared tier)
@@ -193,6 +216,9 @@ AI Forging adds what superpowers intentionally leaves to each team's architectur
 - The `architecture-analyzer` skill for advisory audits.
 - The `hammer-refactor` skill as the executable Hammer stage.
 - The `capture-pattern` skill as the reactive Tempering feedback loop that grows the library one code review at a time — with a two-tier model (shared across all same-stack targets, or target-local) so cross-pollination is built in.
+- The **feature test suite** rule: one named suite per feature, registered before the first test, augmented by every subsequent work item — and nothing else ever runs during the loop. The full suite is handed back to the human, in words, when implementation ends.
+- The `browser-testing` skill: an optional pass that walks the feature's human QA checklist in a real browser and reports divergence without fixing anything.
+- The `review-loop` skill: an optional multi-round review / triage / fix cycle across every repo a feature touched, with a triage step because roughly a third of review findings describe deliberate behavior.
 - An optional Playwright convention layer for frontend integration tests.
 - A forge workspace model (separate directory, monorepo root, or single-repo root) with a central `docs/features/<name>/spec.md + plan.md` convention, so features that touch multiple repos (or sub-projects) have one place to plan and track them.
 
@@ -214,7 +240,9 @@ Update the plugin at the machine level, then propagate the changes:
 /aiforging:update-targets
 ```
 
-`/aiforging:update-targets` diffs every copied artifact (conventions, skills, seeded patterns) against the new plugin version and asks before overwriting. Your user-captured patterns and feature specs are never touched. This is the right choice for minor version bumps and incremental improvements.
+`/aiforging:update-targets` diffs every copied artifact (conventions, skills, seeded patterns) against the new plugin version and asks before overwriting. Your user-captured patterns and everything under `docs/features/` — specs, plans, `testing.md` checklists, and the `ai-testing/` and `ai-reviews/` run records — are never touched. This is the right choice for minor version bumps and incremental improvements, and it is the intended path for v0.2.0 → v0.3.0.
+
+As of v0.3.0 the command is **manifest-driven**: it reads `.claude-plugin/artifacts.json` rather than a list baked into the command file. New artifacts therefore propagate to existing workspaces automatically, including into targets onboarded several versions ago — an artifact whose `since` is newer than what you have installed is presented as an *offer* with an explanation, not a silent install. Optional artifacts you previously declined stay declined unless you opt in.
 
 ### Clean reinstall (for major upgrades or a fresh start)
 
@@ -246,33 +274,43 @@ The uninstall is designed to preserve your work: `docs/features/` (all your spec
 
 No autonomous deployment. No silent refactoring. Every proposal goes to a human before a merge happens.
 
+Two of the framework's rules exist specifically to keep those gates real rather than ceremonial:
+
+- **`browser-testing` never fixes what it finds.** A step that fails in the browser means the product and the specification disagree — it says nothing about which one is wrong, and an auto-fixer would cement the wrong assumption *and* produce a green checklist attesting to it. Every finding goes to a conversation first.
+- **Nothing here runs your full test suite.** Every agent's test run is scoped to the feature's own suite, which is what keeps the loop fast. That trades a real risk — a cross-feature regression a scoped run cannot see — so the skills stop at the end of implementation and hand the full suite back to you explicitly, every time.
+
 ## Status
 
-v0.2.0 — **research preview.** The plugin structure, conventions library, two-phase `/aiforging:setup` command, and the three skills (`architecture-analyzer`, `hammer-refactor`, `capture-pattern`) are all in place and have been dogfooded against real backend targets by both the author and an external tester. The Symfony/PHP/Doctrine stack is the happy path; other stacks work to the extent that the conventions apply (which is substantial, but mileage will vary until we ship dedicated adapters).
+**v0.3.0 — open source, MIT licensed.** The plugin structure, conventions library, two-phase `/aiforging:setup`, and five skills (`architecture-analyzer`, `hammer-refactor`, `capture-pattern`, `browser-testing`, `review-loop`) are in place and have been dogfooded against real production codebases by the author and by external testers. Symfony / PHP / Doctrine is the happy path; other stacks work to the extent that the conventions apply — which is substantial, but mileage will vary until dedicated adapters ship.
 
-**What's in v0.2.0** (see `CHANGELOG.md` for details):
+### What's new in v0.3.0
 
-- Service wrapper detection — Dockerized monorepos where the framework code lives in a subdirectory (e.g., `webapp/application/`) are now detected correctly; `.aiforging/` lands at the service boundary, not inside the app subdirectory.
-- Playwright convention onboarding no longer skipped when an existing Playwright config is detected — the default flips to Y because an existing setup makes conventions more relevant, not less.
-- Global config consent (`~/.claude/aiforging.json`) is now opt-in with a front-loaded explanation of what gets written outside cwd.
-- Skill copy messaging explains that the plugin already provides the skills as commands; repo-local copies are for teammate discoverability.
+See `CHANGELOG.md` for the full entry.
 
-**Also shipped:**
+- **Two optional post-implementation skills.** `browser-testing` walks a feature's `testing.md` in a real browser, marks the items only a human can judge, records one line of evidence per step, and reports what diverged **without fixing anything**. `review-loop` runs rounds of review → triage → fix across every repo a feature touched, with a triage step, a real stop condition, and convergence rules so the loop terminates. Both are workspace-level and both are optional.
+- **The feature test suite rule.** One named test suite per feature, registered before the first test and augmented by every later work item. No agent — Fire, Hammer, or fix — ever runs the full repository suite. The convention names the regression risk that trades against, and makes the full-suite handoff to the human a mandatory, spoken step rather than a footnote.
+- **`testing.md`, `overview.md`, and `summary.md`.** The feature-folder convention now specifies all three: a UI-driven QA checklist required for any feature with a UI surface (and the required input to `browser-testing`), the work-item umbrella for nested features, and an optional post-implementation snapshot for features with three or more work items. `/aiforging:new-feature` scaffolds `testing.md` from a template, or records why the feature does not need one.
+- **An artifact manifest.** `.claude-plugin/artifacts.json` describes every artifact the plugin copies out of itself — destination, scope, applicable target roles, and update policy. `/aiforging:setup`, `/aiforging:update-targets`, and `/aiforging:uninstall` all read it instead of carrying their own hardcoded lists, which is what previously let a new artifact install on fresh setups and never reach existing users.
+- **The workflow diagram** now shows the optional verification stages, the concurrency between machine and human browser testing, and the final full-suite gate.
 
-- `/aiforging:new-feature <name> <prompt>` (also aliased as `/aiforging:forge`) — scaffolds `docs/features/<name>/` and hands off to `superpowers:brainstorming`. Works from any directory via the run-anywhere pointer file (`~/.claude/aiforging.json`).
-- `/aiforging:update-targets` — propagates plugin-level updates (new skills, new conventions, new shared-tier patterns) into previously onboarded target repos with diff-and-ask semantics.
-- `/aiforging:uninstall` — clean removal of all plugin artifacts while preserving your feature specs, plans, and user-captured patterns.
-- **Two-tier pattern library** — shared tier at workspace level with `applies-to` YAML frontmatter, target-local tier per repo. `hammer-refactor` merges both; `capture-pattern` asks shared-vs-local at capture time.
-- **Workspace-as-role** — `/aiforging:setup` adapts to multi-repo, monorepo, and single-repo scenarios via a scenario interview.
-- **Monorepo sub-project detection** — `detect-project.py` recurses into child directories with service wrapper awareness; setup presents detected sub-projects for confirmation.
+Existing workspaces pick all of this up through `/aiforging:update-targets` — see [Upgrading](#upgrading). Nothing in `docs/features/` is touched.
 
-**Not yet shipped:**
+### Shipped earlier
 
-- `/aiforging:execute-plan` — walks through a workspace feature plan with per-step approval gates via `superpowers:executing-plans` and `superpowers:subagent-driven-development`.
+- `/aiforging:new-feature <name> <prompt>` (aliased `/aiforging:forge`) — scaffolds `docs/features/<name>/` and hands off to `superpowers:brainstorming`. Works from any directory via the run-anywhere pointer file (`~/.claude/aiforging.json`).
+- `/aiforging:update-targets` — propagates plugin updates into previously onboarded targets with diff-and-ask semantics.
+- `/aiforging:uninstall` — clean removal of plugin artifacts while preserving your feature folders and captured patterns.
+- **Two-tier pattern library** — a shared tier at workspace level with `applies-to` frontmatter, plus a target-local tier per repo. `hammer-refactor` merges both; `capture-pattern` asks which tier at capture time.
+- **Workspace-as-role** — setup adapts to multi-repo, monorepo, and single-repo layouts via a scenario interview.
+- **Monorepo and service-wrapper detection** — `detect-project.py` recurses into child directories and recognizes Dockerized layouts where framework code sits in a subdirectory, so `.aiforging/` lands at the service boundary.
+
+### Not yet shipped
+
+- `/aiforging:execute-plan` — walks a workspace feature plan with per-step approval gates via `superpowers:executing-plans` and `superpowers:subagent-driven-development`.
 - Dedicated stack adapters for Laravel, Spring/Java, .NET/C#, Node/TS.
-- A community marketplace of patterns contributed by users.
+- A community marketplace of user-contributed patterns.
 
-Contributions welcome once the extension-point contracts stabilize — for now, the best way to contribute is to try it on a real codebase and open issues about what broke.
+The most useful contribution right now is still the same: run it on a real codebase and open an issue about what broke. See `CONTRIBUTING.md`.
 
 ## Author
 

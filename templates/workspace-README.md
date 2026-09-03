@@ -15,8 +15,12 @@ This directory is an **AI Forging workspace** — a central orchestration hub fo
 │   ├── settings.json                      # COMMITTED: enabledPlugins (superpowers + aiforging)
 │   ├── settings.local.json                # GITIGNORED: absolute paths to your target repos
 │   └── skills/
-│       └── capture-pattern/
-│           └── SKILL.md                   # Tempering feedback loop (see below)
+│       ├── capture-pattern/
+│       │   └── SKILL.md                   # Tempering feedback loop (see below)
+│       ├── browser-testing/               # optional — walk testing.md in a real browser
+│       │   └── SKILL.md
+│       └── review-loop/                   # optional — rounds of review, triage, fix
+│           └── SKILL.md
 ├── .aiforging/
 │   ├── patterns/                          # SHARED TIER — applies-to frontmatter, stack-filtered
 │   └── anti-patterns/                     # SHARED TIER — seeded patterns live here
@@ -54,7 +58,7 @@ The `.gitignore` at the workspace root protects `settings.local.json` from accid
 
 The plugins themselves are installed once per user at the machine level — Claude Code reads the enable-map at session start and activates the matching installs. If you haven't installed them yet:
 
-- **[aiforging](https://github.com/ccholland/aiforging)** — the framework that defines the slice plan format, the `hammer-refactor` skill, and the `architecture-analyzer` skill. Install with `/plugin install aiforging@claude-plugins-official`.
+- **[aiforging](https://github.com/aiforging/aiforging)** — the framework that defines the slice plan format and ships the `hammer-refactor`, `capture-pattern`, `architecture-analyzer`, `browser-testing`, and `review-loop` skills. Install with `/plugin install aiforging@claude-plugins-official`.
 - **[superpowers](https://github.com/obra/superpowers)** — the foundation. Provides `test-driven-development`, `brainstorming`, `writing-plans`, `executing-plans`, and `subagent-driven-development`. AI Forging depends on these. Install with `/plugin install superpowers@claude-plugins-official`.
 
 If you installed either from a different marketplace (for example `superpowers@superpowers-dev` via `/plugin marketplace add obra/superpowers`), update `.claude/settings.json` to match the identifier you actually installed, or re-run `/aiforging:setup` and supply the right marketplace source when prompted.
@@ -104,17 +108,19 @@ The teammate then runs `/aiforging:setup` in the cloned workspace. Phase detecti
 
 ## How to use this workspace
 
-1. **Pick or create a feature.** New features go in `docs/features/<kebab-case-name>/`.
+1. **Pick or create a feature.** `/aiforging:forge <name> "<what you want>"`, or create `docs/features/<kebab-case-name>/` by hand.
 2. **Spec it.** Run `superpowers:brainstorming` then the spec phase of `superpowers:writing-plans` to fill out `spec.md`.
-3. **Plan it.** Run the plan phase of `superpowers:writing-plans` to produce `plan.md` in the AI Forging slice format (see `docs/features/README.md`).
-4. **Execute Fire.** Walk the `[fire]` slices with `superpowers:executing-plans` + `test-driven-development`. Result: green tests.
-5. **Execute Hammer.** Invoke `aiforging:hammer-refactor` on the target repo(s). Result: code shaped toward the prescribed architecture, tests still green.
+3. **Plan it.** Run the plan phase of `superpowers:writing-plans` to produce `plan.md` in the AI Forging slice format (see `docs/features/README.md`). The plan names **one test suite for the whole feature** and repeats the scoped-run rule in every slice. If the feature has a UI surface, fill in its `testing.md` checklist now, from the spec.
+4. **Execute Fire.** Walk the `[fire]` slices with `superpowers:executing-plans` + `test-driven-development`. Every run is scoped to the feature's suite. Result: that suite green.
+5. **Execute Hammer.** Invoke `aiforging:hammer-refactor` on the target repo(s). Result: code shaped toward the prescribed architecture, feature suite still green.
 6. **Temper.** When you correct the AI during code review and the correction encodes a reusable rule, the `capture-pattern` skill will offer to persist it. It asks whether the pattern should be shared (workspace `.aiforging/`, available to all same-stack targets) or target-local (target's `.aiforging/`, this repo only). See "The Tempering feedback loop" section above.
-7. **Commit the feature history.** When the feature is done, `git add docs/features/<name>/ && git commit` so the spec, plan, and any notes become part of the workspace's permanent record.
+7. **Verify — optional.** `/aiforging:browser-testing` walks the feature's `testing.md` in a real browser and reports what diverged without fixing anything; work the 👤 items yourself in parallel while it runs. Then `/aiforging:review-loop` for rounds of review, triage, and fix. Browser testing first.
+8. **Run your full test suite.** Nothing here does — every automated run was scoped to this feature's suite, so a regression in a different feature wouldn't have surfaced. The skills will remind you; this is the reminder in writing.
+9. **Commit the feature history.** When the feature is done, `git add docs/features/<name>/ && git commit` so the spec, plan, checklist, and run records become part of the workspace's permanent record.
 
 ## Adding a new target repo
 
-Run `/aiforging:setup` in this directory. It will detect that the workspace is already initialized and walk you through onboarding an additional project (detection, analysis, copying the conventions, optionally installing `hammer-refactor` and seeding the pattern library). The new target's path goes into `.claude/settings.local.json`, and `/aiforging:setup` will offer to capture the onboarding as a follow-up git commit if the workspace is a git repo.
+Run `/aiforging:setup` in this directory. It will detect that the workspace is already initialized and walk you through onboarding an additional project (detection, analysis, copying the conventions, optionally installing the `hammer-refactor` + `capture-pattern` bundle, and creating the target-local pattern tier). The new target's path goes into `.claude/settings.local.json`, and `/aiforging:setup` will offer to capture the onboarding as a follow-up git commit if the workspace is a git repo.
 
 ## Removing a target repo
 

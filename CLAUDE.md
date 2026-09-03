@@ -2,7 +2,7 @@
 
 ## What this repo is
 
-This is the **AI Forging** Claude Code plugin source repo. It defines prescriptive conventions, a setup command, and two skills (`architecture-analyzer`, `hammer-refactor`) that teams use to practice the AI Forging methodology (Fire → Hammer → Tempering).
+This is the **AI Forging** Claude Code plugin source repo. It defines prescriptive conventions, a set of slash commands, and five skills (`architecture-analyzer`, `hammer-refactor`, `capture-pattern`, `browser-testing`, `review-loop`) that teams use to practice the AI Forging methodology (Fire → Hammer → Tempering, plus two optional verification stages after it).
 
 **Do not confuse this with a plugin that gets invoked on its own contents.** This repo is where the plugin is *authored*. End users never clone it — they install it via Claude Code's marketplace. When an end user runs `/aiforging:setup`, the command reads from the installed plugin and writes into the user's *forge workspace* and/or *target repos* — it never modifies this source repo.
 
@@ -44,8 +44,8 @@ Every new session should start by reading `PLAN.md` and end by updating the sess
 ## Directory map
 
 ```
-.claude-plugin/             Plugin manifest and marketplace definition
-commands/                   Slash commands — /aiforging:setup lives here
+.claude-plugin/             Plugin manifest, marketplace definition, and artifacts.json
+commands/                   Slash commands. setup, new-feature (+ forge alias), browser-testing, review-loop, update-targets, uninstall. The last four of those are thin pointers — the rules live in the skill or, for setup, in this file's directory map
 scripts/                    Helper scripts invoked by commands (uv run, or python3 fallback)
   detect-project.py         Read-only stack detection → JSON
   configure-directories.py  Manages permissions.additionalDirectories in settings.local.json
@@ -54,10 +54,13 @@ skills/                     Agent skills
   architecture-analyzer/    Non-destructive advisory analysis pass (runs from workspace)
   hammer-refactor/          Executable Hammer stage (copied into each target repo)
   capture-pattern/          Reactive Tempering feedback loop (copied into workspace AND each target repo)
+  browser-testing/          Optional post-implementation stage — walks testing.md in a browser (workspace only)
+  review-loop/              Optional post-implementation stage — review/triage/fix rounds (workspace only)
 templates/                  Bootstrap templates for forge workspace init (phase A)
   workspace-CLAUDE.md       Copied to <workspace>/CLAUDE.md
   workspace-README.md       Copied to <workspace>/README.md
   docs-features-README.md   Copied to <workspace>/docs/features/README.md
+  feature-testing.md        Copied per-feature to docs/features/<name>/testing.md by /aiforging:new-feature
 conventions/                The library copied into target repos during onboarding
   CLAUDE.md.template        Per-target repo CLAUDE.md pointer
   features/                 Canonical feature-folder convention (also in templates/ for workspace seeding)
@@ -65,7 +68,11 @@ conventions/                The library copied into target repos during onboardi
   tdd/                      Fire stage (delegates to superpowers) + harness contract
   refactoring/              Hammer + Tempering: pattern/anti-pattern library
   frontend-testing/         Optional Playwright layer
+docs/releases/              Per-release notes, for pasting into GitHub releases
+.github/                    Issue templates and PR template
 README.md                   Public-facing plugin README
+CONTRIBUTING.md             Contribution guide (field reports, patterns, adapters, the manifest rule)
+CHANGELOG.md                Keep a Changelog format; every release gets an entry
 PLAN.md                     Persistent plan and session log — always read this first
 CLAUDE.md                   You are here
 ```
@@ -76,7 +83,9 @@ CLAUDE.md                   You are here
 - **Never add a generic "refactor rules" monolith.** One pattern, one file, in `conventions/refactoring/patterns/` or `conventions/refactoring/anti-patterns/`.
 - **Never re-implement a superpowers skill.** If a capability exists in the superpowers plugin, reference it — don't copy it.
 - **Never modify files outside this repo.** The setup command is the only surface that touches user files (forge workspace + target repos), and even it goes through `configure-directories.py` and explicit copy steps.
-- **When the canonical feature convention changes in `conventions/features/README.md`, update `templates/docs-features-README.md` too.** The template is copied into new forge workspaces during phase A init; the canonical doc is the source of truth.
+- **When the canonical feature convention changes in `conventions/features/README.md`, update `templates/docs-features-README.md` too.** The template is copied into new forge workspaces during phase A init; the canonical doc is the source of truth. These two are the most-drifted pair in the repo — check them together on every change to either.
+- **If a change adds anything the plugin COPIES out of itself, register it in `.claude-plugin/artifacts.json` first.** Skills, convention directories, templates, seeded patterns. `/aiforging:setup`, `/aiforging:update-targets`, and `/aiforging:uninstall` all read that manifest. An artifact missing from it will install on fresh setups and never reach anyone already using the plugin — silently, with nothing to notice. Decision 27.
+- **Never soften a rule into a recommendation.** The full-suite handoff spent a release as an optional "you may want to..." note at the end of Hammer and was, predictably, the thing that got skipped. If a step matters, it is stated unconditionally and it is stated in the completion contract. Decision 24.
 - **When the hammer-refactor skill changes in `skills/hammer-refactor/SKILL.md`, remember that existing target repos have a *copy*.** A future `/aiforging:update-targets` command will propagate updates; for now, note the propagation gap in the session log.
 - **Always update `PLAN.md`'s session log** at the end of any working session. Future sessions depend on it.
 - **Always test scripts against real data** before committing — `uv run scripts/detect-project.py` and `uv run scripts/configure-directories.py check --settings-file <path>` should both work out of the box. (If `uv` isn't on PATH in your shell, `python3 scripts/...` works identically — these are PEP 723 single-file scripts with no third-party deps. `commands/setup.md` probes for `uv` and falls back to `python3` at runtime; your dev tests should be robust to the same fallback.)

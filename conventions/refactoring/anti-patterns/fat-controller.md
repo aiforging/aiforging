@@ -31,8 +31,8 @@ A controller class is "fat" if any of the following apply:
 2. For each action, create a new single-action controller class in the feature's `Controller/` folder. Copy the current action method into `__invoke`.
 3. For each action, create a corresponding Service class in `Service/`. Move the business logic and persistence calls from the controller into the Service.
 4. Wire each new controller to its route. For Symfony, the `#[Route]` attribute moves to the new class. For Laravel, update `routes/web.php` or `routes/api.php` to bind the class directly. For NestJS, each new controller has its own `@Controller`.
-5. Run the test suite after each extraction. If tests break, figure out why before moving on. If a controller's logic wasn't covered by a test, write one before extracting (this is Fire stage).
-6. Delete the old fat controller once every action has been moved and the test suite is green.
+5. Run the feature's named test suite after each extraction. If tests break, figure out why before moving on. If a controller's logic wasn't covered by a test, write one before extracting (this is Fire stage).
+6. Delete the old fat controller once every action has been moved and the feature's named test suite is green.
 
 ### Before
 

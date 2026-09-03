@@ -5,6 +5,69 @@ All notable changes to the AI Forging plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-09-03
+
+Verification stages, scoped test suites, and a manifest so future additions actually reach existing users.
+
+This release adds the two stages that come *after* the forge — checking the running product, and reviewing the diff — and formalizes a test-scoping discipline that had been carried informally in project instructions. It also fixes the structural reason earlier improvements could strand existing users.
+
+### Added
+
+- **`browser-testing` skill** (`/aiforging:browser-testing`). Walks a feature's `testing.md` in a real browser against a local or explicitly-named QA environment. Marks the checklist items only a human can produce a *believable* verdict on (👤) inline so the human can work those in parallel, walks the rest, records one line of plain-text evidence per step, and writes a numbered run record to `docs/features/<feature>/ai-testing/NN/`.
+
+  **It fixes nothing, and that is the point.** A step that fails in the browser is evidence that the product and the specification disagree; it is not evidence about which of them is wrong. An auto-fixer would cement the wrong assumption *and* produce a green checklist attesting to it. Every finding goes to `escalations.md` and to a human conversation. The skill also refuses to run without a `testing.md` rather than inventing one — a run against a guessed checklist tests whatever the machine imagined.
+
+  Workspace-scoped: its required input and its output both live in the feature folder, and it orchestrates across every implicated target.
+
+- **`review-loop` skill** (`/aiforging:review-loop`). Rounds of review → triage → fix across every repo a feature touched, replacing the manual cycle of running reviews in separate terminals and pasting output back. One read-only review subagent per repo in parallel; fixes serialized per repo; findings triaged against the source *before* acceptance; classification by change class (green / amber / red) rather than by felt confidence, because a confident agent is exactly the one that does not ask.
+
+  Includes convergence rules — prior triage verdicts are a required input to every review agent — so the loop terminates instead of re-litigating settled decisions. Stops on a real stop condition rather than a finding count or a severity trend; both were tried and both misled. Writes `docs/features/<feature>/ai-reviews/NN/`.
+
+  Runs **after** `browser-testing`, deliberately: review rounds can run to exhaustion on a diff while a behavioral defect sits untouched in the most-used screen, and the cheapest moment to reverse a wrong decision is before more work is built on it.
+
+- **`conventions/tdd/feature-test-suite.md`** — the scoped-test-suite convention. One named test suite per **feature**, registered before the first test is written and augmented by every later work item; that suite, and only that suite, runs during Fire, Hammer, and any fix agent. Includes per-stack registration syntax, the four places the rule has to be repeated to reach a fresh-context subagent, and an explicit statement of the regression risk the framework accepts in exchange for a fast loop.
+
+- **`testing.md` in the feature-folder convention** — a UI-driven QA checklist required for every feature with a UI surface, covering access and gating, the happy path, and key edge cases, in that order. One per feature (never one per work item), ordered by work item in the nested shape, written *before* implementation ends so it describes what was supposed to be built rather than what was. Research-only work and purely internal changes may skip it, but the decision is recorded in the spec rather than silently omitted.
+
+- **`summary.md` in the feature-folder convention** — an optional post-implementation snapshot for features with three or more work items: work-item table, what was built, what was deferred and why, architecture highlights. Written after implementation, never before.
+
+- **`templates/feature-testing.md`** — the `testing.md` skeleton, copied per-feature by `/aiforging:new-feature`.
+
+- **`/aiforging:browser-testing` and `/aiforging:review-loop`** — thin command wrappers so both stages have a name you can type, following the same pointer-to-one-source-of-truth pattern as `/aiforging:forge`.
+
+- **Frontmatter on `/aiforging:update-targets` and `/aiforging:uninstall`**, which previously had none and so appeared in the command list without a description.
+
+- **`.claude-plugin/artifacts.json`** — a manifest of every artifact the plugin copies out of itself: source path, destination per scope, applicable target roles, whether it is optional, and its update policy (`diff-and-ask`, `offer-default-no`, `seeded-only`, `create-if-missing`, `never`), plus a `user_owned` list nothing may touch.
+
+- **`CONTRIBUTING.md`** — how to propose a pattern, a convention, or a stack adapter, and the dogfooding loop for plugin development.
+
+### Changed
+
+- **Nothing runs the full test suite any more — and the handoff to the human is now a spoken step.** The Fire convention, the subagent-orchestration prompt templates (all four), and the `hammer-refactor` skill all now scope every run to the feature's named suite and refuse to widen it without asking. In exchange, `hammer-refactor`, `browser-testing`, and `review-loop` each end by telling the user, in words, that every run was scoped, what that means for cross-feature regressions, and which command to run themselves before opening a PR. Previously the full-suite run was described as an optional final "recommendation," which is exactly the kind of note that gets skipped when a pass went well.
+
+- **`plan.md` now carries the test-scoping rule.** Every plan opens with a `## Test suite` block naming the suite and its exact run command, and every slice's subagent prompt repeats the scoped-run instruction verbatim. The repetition is deliberate: a fresh-context subagent reads the slice it was handed, and "run everything to prove I'm done" is the strongest default an agent has.
+
+- **`/aiforging:update-targets` is manifest-driven.** It previously carried a hardcoded list of skills and convention directories, which meant every new artifact required editing the command — and forgetting to meant the artifact installed on fresh setups but never propagated to existing users, silently. It now reads `artifacts.json`, treats anything whose `since` is newer than the installed version as an *offer* with an explanation rather than a silent install, and reports what changed in **behavior**, not just which files changed. `/aiforging:setup` and `/aiforging:uninstall` read the same manifest.
+
+- **`/aiforging:new-feature` asks whether the feature has a UI surface** and scaffolds `testing.md` from the template if so — leaving the checklist items as placeholders, because the spec that produces them does not exist yet. If not, it records the reason in the spec. Its extension flow now keeps `testing.md` at the feature level when converting a flat feature to the nested shape, rather than moving it into a work item.
+
+- **`/aiforging:setup` Phase A offers the two verification skills** (default Y) with an explanation of what each does. Declining is remembered for the run, and `/aiforging:update-targets` will offer them again later.
+
+- **The feature-folder convention documents all six document roles** — spec, plan, overview, testing, summary, notes — plus the two machine-written run-record directories, with a table saying which are required, when each is written, and what job each has. The lifecycle now runs to eleven steps, including the two optional verification stages and the full-suite handoff.
+
+- **`docs/feature-workflow.svg`** gained a VERIFY band showing `browser-testing` and the human's own browser pass running *concurrently*, `review-loop` after them, and a final human gate for the full test suite.
+
+- **The "research preview" label is retired.** The plugin is v0.3.0, open source, MIT licensed, and running against real production codebases. The README and the website say that instead.
+
+### Notes for existing users
+
+Run `/aiforging:update-targets` from your forge workspace. Everything in this release is additive:
+
+- Nothing under `docs/features/` is read, moved, or modified — including existing specs, plans, and any `testing.md` you already wrote by hand.
+- User-captured patterns (anything without `seeded: true` frontmatter) are untouched, in both tiers.
+- The two new skills are **offered**, not installed. Declining is fine and the framework works without them.
+- Features already in flight keep working. The scoped-suite rule and `testing.md` apply to features you plan from here on; retrofitting an in-flight feature is optional, and registering a suite for it is a two-minute change if you want the benefit early.
+
 ## [0.2.0] — 2026-04-23
 
 First external feedback round — incorporating field testing from [Srdjan Vranac](https://github.com/vranac) who ran `/aiforging:setup` against a real Dockerized Symfony monorepo.

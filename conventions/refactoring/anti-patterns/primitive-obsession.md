@@ -37,7 +37,7 @@ Mechanical signals a subagent can check in the session's changed files:
 3. Update the Entity, Service, and Repository signatures to use the Value Object.
 4. Update tests. This is usually where you discover whether your test harness was relying on the primitive representation — if a test was passing `42` where it should have been `new CustomerId(42)`, that's fine; the fix is trivial.
 5. At the HTTP/CLI boundary (DTOs), keep the primitives. The Service's job is to translate from the primitive DTO to the Value Object when it builds the Entity.
-6. Run the full test suite. If any test breaks, investigate — primitive-obsession fixes have a high rate of exposing latent bugs.
+6. Run the **feature's named test suite** — never the full repository suite (see `tdd/feature-test-suite.md`). If any test breaks, investigate — primitive-obsession fixes have a high rate of exposing latent bugs.
 
 ### Before
 

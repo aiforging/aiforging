@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Read the conventions first
+    url: https://github.com/aiforging/aiforging/tree/main/conventions
+    about: Much of what looks like a bug is a deliberate opinion. The conventions say which, and why.
+  - name: The methodology
+    url: https://aiforging.dev
+    about: Philosophy, method, and where the plugin fits.

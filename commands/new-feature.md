@@ -14,7 +14,7 @@ It is NOT a rewrite of spec/plan generation — `superpowers:writing-plans` stil
 
 - It does NOT execute any slice of any plan.
 - It does NOT run `superpowers:writing-plans` automatically — it hands off after the Summary checkpoint and lets the user drive the rest of the planning workflow.
-- It does NOT modify any target repo. The only file it writes is the feature's `spec.md` skeleton in the forge workspace's `docs/features/` tree.
+- It does NOT modify any target repo. The only files it writes are the feature's `spec.md` skeleton — and, when the feature has a UI surface, a `testing.md` skeleton — in the forge workspace's `docs/features/` tree.
 - It does NOT commit anything to git. That's the user's call.
 
 ## Step 0 — Orient yourself
@@ -33,7 +33,7 @@ The command can be invoked from two places: inside a forge workspace (the normal
 
 The current directory is a forge workspace if ALL of the following are true:
 
-- `./CLAUDE.md` exists AND contains the marker string `AI Forging forge workspace` (written by `/aiforging:setup` Phase A).
+- `./CLAUDE.md` exists AND contains the marker string `AI Forging workspace` (written by `/aiforging:setup` Phase A via `templates/workspace-CLAUDE.md`).
 - `./docs/features/` exists as a directory.
 - `./.claude/settings.json` exists and contains an `enabledPlugins` key.
 
@@ -206,6 +206,38 @@ _(To be filled in as work items are added. Note which items block which.)_
 
 Create `<workspace>/docs/features/<name>/01-<first-work-item>/spec.md` using the same Step-1 Summary skeleton from 4a, but with the Summary focused on this specific work item rather than the whole feature.
 
+## Step 4c — UI surface check and `testing.md` skeleton
+
+After the folder exists (flat or nested), ask one question:
+
+> Will this feature have a **UI surface** — anything a person clicks, sees, or fills in?
+>
+> - **Yes (default)** — I'll create a `testing.md` skeleton now. It's the human QA checklist: the steps someone walks through in the running app. It's also the required input to `/aiforging:browser-testing` later.
+> - **No** — research-only work, or a purely internal / pipeline change with no visible behavior. I'll note that decision in the spec instead.
+>
+> [Y/n]
+
+Default: Y.
+
+**If yes**, copy the template and fill in the feature name:
+
+```bash
+cp ${CLAUDE_PLUGIN_ROOT}/templates/feature-testing.md \
+   <workspace>/docs/features/<name>/testing.md
+```
+
+Then replace `<feature name>` in the heading with the human-readable feature title. **Leave the placeholder checklist items as placeholders.** You do not know the access rules, the happy path, or the edge cases yet — the spec interview (Step 2 of the planning workflow) is what produces them, and the checklist gets filled in during Step 4 of that workflow, from the spec. Inventing checklist items now, before the spec exists, produces a checklist that tests whatever you imagined rather than what was agreed.
+
+For a **nested** feature, `testing.md` goes at the **feature level**, not inside `01-<work-item>/`. One checklist per feature, ordered by work item.
+
+**If no**, create nothing, and add this line under "In scope / out of scope" in `spec.md`:
+
+```markdown
+**No `testing.md`.** This work has no UI surface (<one-line reason: research-only / internal pipeline change / …>), so the UI QA checklist is deliberately skipped per `conventions/features/README.md`.
+```
+
+Recording the decision matters more than the decision itself. A missing `testing.md` with no explanation is indistinguishable from an oversight, and six months later nobody can tell which it was.
+
 ## Step 5 — Extension flow
 
 When the user said "extend-<n>" in Step 3, the feature already exists. Look at what shape it's in:
@@ -231,7 +263,7 @@ If yes:
 
 1. Prompt for the name of the existing work item ("What should we call the existing work as `01-<name>`?"). Normalize to kebab-case.
 2. Prompt for the new work item's name and brief description.
-3. `mkdir -p docs/features/<existing>/01-<existing-work-item>` and `mv docs/features/<existing>/spec.md docs/features/<existing>/01-<existing-work-item>/spec.md`. Same for `plan.md` and `notes.md` if they exist (notes.md stays at the feature level actually — it's a feature-wide free-form file; only move spec.md and plan.md).
+3. `mkdir -p docs/features/<existing>/01-<existing-work-item>` and `mv docs/features/<existing>/spec.md docs/features/<existing>/01-<existing-work-item>/spec.md`. Same for `plan.md`. **Only `spec.md` and `plan.md` move.** `notes.md`, `testing.md`, `summary.md`, `ai-testing/` and `ai-reviews/` are feature-wide and stay at the feature level — `testing.md` in particular is one checklist per feature, never one per work item. If `testing.md` exists, add a heading for the new work item to it so the checklist stays ordered by work item in dependency order.
 4. Create `docs/features/<existing>/overview.md` using the template from 4b, listing BOTH work items.
 5. `mkdir -p docs/features/<existing>/02-<new-work-item>` and create its `spec.md` with the Step-1 Summary skeleton.
 
@@ -244,6 +276,8 @@ Find the highest existing `NN-` prefix and increment it. If `01-foo` and `02-bar
 1. Prompt for the new work item's name and brief description.
 2. `mkdir -p docs/features/<existing>/<NN>-<new-work-item>` and create its `spec.md` with the Step-1 Summary skeleton, scoped to the new work item.
 3. Append the new work item to the "Work items" list in `docs/features/<existing>/overview.md`, in order.
+4. If `docs/features/<existing>/testing.md` exists, append a `## <NN> — <new work item>` section to it with placeholder checkboxes, so the feature's single checklist keeps covering the whole feature. Do NOT create a second `testing.md` inside the work-item folder. If it does not exist and this work item has a UI surface, run the Step 4c offer now.
+5. **Do not create or update `summary.md` here.** It is written after implementation, not during scoping.
 
 ## Step 6 — Summary checkpoint (Planning Workflow Step 1 handoff)
 
@@ -252,7 +286,8 @@ Show the user what you just created and stop. Print something like:
 ```
 Created:
   <workspace>/docs/features/<name>/
-  ├── spec.md   (Step 1 Summary captured — AWAITING CONFIRMATION)
+  ├── spec.md      (Step 1 Summary captured — AWAITING CONFIRMATION)
+  ├── testing.md   (skeleton — checklist gets filled in from the spec, in planning Step 4)
   │
   └── (plan.md will be created after Steps 2–3 of the planning workflow are done)
 
@@ -276,6 +311,9 @@ These are the non-negotiables. If you catch yourself about to violate one, stop.
 
 - **Never write under `${CLAUDE_PLUGIN_ROOT}`.** The plugin source is read-only from this command's perspective.
 - **Never create `plan.md` in Step 4.** Plan.md is Step 4 of the planning workflow, not Step 1 of this command.
+- **Never fill in `testing.md`'s checklist here.** Create the skeleton; the items come from the spec, which does not exist yet.
+- **Never create a second `testing.md` inside a work-item folder.** One per feature, at the feature level.
+- **Never create `summary.md`.** It is written after implementation is complete, by whoever finishes the feature.
 - **Never skip the Summary checkpoint.** Do not proceed past Step 6 without user confirmation of the Summary.
 - **Never rename an existing feature folder.** If the user chose a name that collides, re-prompt for a different name. Existing features are stable-once-created per the convention.
 - **Never modify a target repo.** This command only touches `<workspace>/docs/features/`.

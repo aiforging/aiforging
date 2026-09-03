@@ -33,7 +33,7 @@ Any one of these triggers the pattern.
 4. Replace any primitives the controller was passing around with Value Objects at the Service boundary where appropriate (see `anti-patterns/primitive-obsession.md`).
 5. In the controller, inject the new Service, call its single method, wrap the result in the HTTP response.
 6. Write or update a Service test that drives the behavior. This test should not spin up an HTTP kernel — it should exercise the Service directly with the real Repository from the test harness.
-7. Run the test suite. Keep green.
+7. Run the feature's named test suite. Keep green.
 
 ### Before
 
@@ -107,7 +107,7 @@ final class CreateInvoiceController
 }
 ```
 
-The VIP discount rule doesn't belong in either the Service OR the Controller — it belongs on `Customer` or on a pricing Value Object. Extract it further if the test suite allows. The Service test can now exercise "VIP customer gets a discount" without touching HTTP.
+The VIP discount rule doesn't belong in either the Service OR the Controller — it belongs on `Customer` or on a pricing Value Object. Extract it further if the tests allow. The Service test can now exercise "VIP customer gets a discount" without touching HTTP.
 
 ## Don't apply when
 

@@ -8,13 +8,33 @@
 
 If that skill isn't available in this session, STOP. Either install the superpowers plugin (see the plugin's main README or re-run `/aiforging:setup`) or confirm with your human partner that you're intentionally proceeding without it. Do not reinvent the loop inline.
 
-## Scoped test runs — keep the loop fast
+## Scoped test runs — the feature's test suite, and nothing else
 
-When running the Red/Green/Refactor loop, scope each test run to the **feature's test class or directory**, not the full repository suite. The speed of the feedback loop is the speed of the cycle — a 2-second focused run beats a 2-minute full suite every time, especially when you're iterating through Red → Green → Red → Green.
+**Before you write the first test, register a named test suite for the feature.** One suite per feature — not one per work item. Every subsequent work item on that feature augments the same suite. Put its name and its exact run command in `plan.md`.
 
-Practically: `phpunit --filter InvoiceTaxTest`, `pytest tests/invoicing/`, `vitest run src/invoicing/`. If the superpowers TDD skill runs the full suite by default, narrow the scope in your prompt or by passing the test file path.
+Then, for the entire Red / Green / Refactor loop, **run only that suite** (or a single file inside it):
 
-The full repository suite is for the end of the feature, not the middle of the loop. Run it once when you're done with Fire and before you hand off to Hammer, and optionally again after Hammer completes all its slices (see `hammer-refactor` Step 6). That final full-suite run is a recommendation, not a gate — you can start reviewing code while it runs.
+```
+./bin/phpunit --testsuite invoice-tax      # not ./bin/phpunit
+pytest -m invoice_tax                       # not pytest
+vitest run src/invoicing/tax                # not vitest run
+```
+
+> ### ⛔ Never run the full repository suite during the loop
+>
+> Not during Fire, not during Hammer, not at the end of a slice, not "just to make sure nothing broke." This **overrides** any default agent behavior that wants to run everything to confirm the work is done. If you think the full suite genuinely needs to run, stop and ask the human. Running it is the human's job, once, after implementation is complete.
+
+The speed of the feedback loop is the speed of the cycle. A 3-second focused run and a 3-minute full run are not the same activity at different speeds — one is test-driven development and the other is writing code and checking at lunch. Mature suites also contain tests that deliberately hit sandbox accounts at payment, tax, and e-signature vendors; those are slow on purpose and are pure waste during a refactor.
+
+**This scoping has a real cost, and the framework pays it deliberately:** a change made for feature A can break feature B, and a scoped run will not see it. That is why the full-suite handoff below is mandatory rather than optional.
+
+### The full-suite handoff — mandatory, at the end
+
+When the implementation phase is complete — all work items done, all Fire sequences green, all Hammer slices committed — **stop and hand the full suite to the human in words.** Do not run it. Tell them what was and was not covered, give them the command, and remind them that every refactor was an atomic commit so anything the full suite surfaces is one `git revert` away.
+
+Say it every time, including when the feature was small and you feel confident. Confidence is precisely the state in which this gets skipped.
+
+The complete convention — how to register a suite in each stack, why it is one per feature, and the four places the rule has to be repeated so a fresh-context subagent actually receives it — is in `tdd/feature-test-suite.md`. Read it once; it is short.
 
 ## What AI Forging adds on top of the superpowers TDD skill
 
@@ -40,11 +60,14 @@ Each iteration through Fire → Hammer → Tempering leaves the codebase stronge
 - **Never generate implementation before a failing test exists.** Even "I'll write the code and then back-fill the tests" is wrong. If you catch yourself doing this, stop and reset the loop.
 - **Never weaken a test to make it pass.** Fix the test deliberately with a human in the loop, or fix the code.
 - **Never disable or skip tests to unblock a refactor.** A disabled test is a liability that compounds.
+- **Never run the full repository suite to "confirm" the work.** Run the feature's named suite. Ask the human before widening scope. See `tdd/feature-test-suite.md`.
+- **Never declare implementation complete without handing the full suite to the human.** A green scoped run is not readiness to merge.
 - **Never mock the database in a Repository test.** Stand up the real thing via the test harness. See `tdd/repository-testing.md`.
 - **Never proceed with Fire-stage work if the test harness can't satisfy the capability contract.** Fix the harness first. That's a prerequisite, not a luxury.
 
 ## Related
 
+- `tdd/feature-test-suite.md`
 - `tdd/test-harness-requirements.md`
 - `tdd/repository-testing.md`
 - `refactoring/README.md`

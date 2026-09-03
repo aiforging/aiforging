@@ -1,0 +1,53 @@
+name: Field report — I ran it on a real codebase
+description: Something broke, misdetected, or assumed wrong when you ran AI Forging against your own project. This is the most useful issue you can open.
+labels: ["field-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for running this on something real. You do not need to propose a fix —
+        a precise description of a wrong assumption is worth more than a patch that papers over it.
+  - type: input
+    id: version
+    attributes:
+      label: Plugin version
+      placeholder: "0.3.0 (see .claude-plugin/plugin.json, or /plugin list)"
+    validations:
+      required: true
+  - type: dropdown
+    id: command
+    attributes:
+      label: What were you running?
+      options:
+        - /aiforging:setup — Phase A (init workspace)
+        - /aiforging:setup — Phase B (onboard target)
+        - /aiforging:new-feature or /aiforging:forge
+        - /aiforging:update-targets
+        - /aiforging:uninstall
+        - hammer-refactor skill
+        - capture-pattern skill
+        - architecture-analyzer skill
+        - browser-testing skill
+        - review-loop skill
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: codebase
+    attributes:
+      label: What does your codebase look like?
+      description: Stack and framework, monorepo or not, and anything unusual about the layout — a service wrapper, a non-standard test directory, a workspace tool, an unusual ORM setup.
+      placeholder: "Symfony 6.4 + Doctrine, Dockerized, framework code under webapp/application/, tests in tests/ at the service root..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect, and what happened?
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Could you work around it?
+      description: If yes, how? This often tells us more about the right fix than the failure does.

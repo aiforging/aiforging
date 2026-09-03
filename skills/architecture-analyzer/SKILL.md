@@ -9,7 +9,7 @@ description: Use when /aiforging:setup has confirmed a backend or fullstack proj
 
 Read a target project's current shape and compare it against the AI Forging architectural ideals documented in `${CLAUDE_PLUGIN_ROOT}/conventions/architecture/` and `${CLAUDE_PLUGIN_ROOT}/conventions/tdd/`. Produce a clear, honest report the user can act on.
 
-**This skill is read-only.** It never creates, edits, deletes, or moves files in the target project. If a user asks the skill to "fix" what it found, refer them to `/aiforging:execute-plan` (which is deferred for v0.1.0) or to manual refactoring with the pattern library.
+**This skill is read-only.** It never creates, edits, deletes, or moves files in the target project. If a user asks the skill to "fix" what it found, refer them to the `hammer-refactor` skill (the executable Hammer stage) or to manual refactoring with the pattern library. `/aiforging:execute-plan` remains unshipped.
 
 ## When to activate
 

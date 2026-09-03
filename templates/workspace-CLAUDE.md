@@ -52,6 +52,8 @@ Additionally, candidate target repos have two AI Forging skills committed at `.c
 - **`hammer-refactor/SKILL.md`** — the executable Hammer stage. Reads both tiers when scanning.
 - **`capture-pattern/SKILL.md`** — the reactive Tempering feedback loop (see next section).
 
+The two verification skills — `browser-testing` and `review-loop` — are **workspace-level only** and are not copied into targets. Their inputs live here: the feature's `testing.md`, the feature folder, and the list of registered targets. A copy inside a single target repo would be a skill whose primary input isn't in that repo.
+
 Each target repo also has its own `.claude/settings.json` with an `enabledPlugins` block committed to its git history, so teammates who clone the target repo (without cloning this workspace) still get `superpowers` and `aiforging` auto-activated when they run Claude inside the target.
 
 ## Tempering feedback loop — capture-pattern
@@ -76,14 +78,20 @@ For any feature you're asked to work on:
 1. **Spec.** If `docs/features/<feature-name>/spec.md` does not exist, use `superpowers:brainstorming` to interview the user and produce it. Do not skip this.
 2. **Plan.** Use `superpowers:writing-plans` to produce `plan.md` **in the AI Forging slice format** documented in `docs/features/README.md`. Each slice is tagged `[fire]`, `[hammer]`, or `[tempering]`, names its target repo, includes its test, and has an explicit subagent prompt.
 3. **Gates.** Any slice marked `[gate: architecture]`, `[gate: schema]`, or `[gate: contract]` must be explicitly approved by the user before it dispatches.
-4. **Execute Fire.** Use `superpowers:executing-plans` + `superpowers:test-driven-development` to walk the `[fire]` slices. Fire must produce a green test suite before any Hammer slice runs.
-5. **Execute Hammer.** Invoke `aiforging:hammer-refactor` on the target repo. The skill reads `plan.md`, merges patterns from both the workspace shared tier and the target-local tier (filtered by the target's stack), and dispatches one subagent per approved slice. Human review after each slice.
-6. **Temper.** When the feature is done, any newly-discovered patterns or anti-patterns get captured via `capture-pattern`. The skill asks whether each capture should be shared (workspace level) or target-local.
+4. **Register the feature's test suite.** One named suite per feature — not one per work item — registered before the first test is written and augmented by every later work item. Its name and exact run command go in `plan.md`'s `## Test suite` block. See `docs/features/README.md`.
+5. **Execute Fire.** Use `superpowers:executing-plans` + `superpowers:test-driven-development` to walk the `[fire]` slices. Fire must produce a green feature suite before any Hammer slice runs.
+6. **Execute Hammer.** Invoke `aiforging:hammer-refactor` on the target repo. The skill reads `plan.md`, merges patterns from both the workspace shared tier and the target-local tier (filtered by the target's stack), and dispatches one subagent per approved slice. Human review after each slice.
+7. **Temper.** When the feature is done, any newly-discovered patterns or anti-patterns get captured via `capture-pattern`. The skill asks whether each capture should be shared (workspace level) or target-local.
+8. **Verify — optional, and worth it whenever there's a UI.** `aiforging:browser-testing` walks the feature's `testing.md` in a real browser while the human works the 👤 items in parallel. It reports what diverged and fixes nothing; every finding is a conversation before it becomes work. Then `aiforging:review-loop` runs rounds of review, triage, and fix across every implicated repo. Browser testing first — reading the diff harder can't find a feature that works exactly as written and is wrong.
+9. **Hand the full suite to the human.** Say it in words: every run in this session was scoped to the feature's suite, a cross-feature regression would not have surfaced, here is the command, each refactor is individually revertible. Then their own pass over `testing.md`, their own code review, and a PR.
 
 ## Hard rules
 
 - **Never execute Hammer before Fire is green.** The `hammer-refactor` skill enforces this, but you should too.
+- **Never run the full repository test suite.** Not during Fire, not during Hammer, not to "make sure nothing broke." Run the feature's named suite. If you believe the full suite must run, stop and ask the user — running it is their job, once, at the end.
+- **Never declare implementation complete without handing the full suite to the human, in words.** Even when the feature was small. Especially then.
 - **Never weaken or skip tests.** If a test blocks a refactor, the refactor is wrong.
+- **Never let `browser-testing` fix what it finds.** A failing checklist step means the product and the spec disagree; which one is wrong is the human's call.
 - **Never write source code in this workspace.** Source code belongs in the target repos.
 - **Never delete or silently rewrite a feature folder.** History matters. If the spec is wrong, add a new feature folder with a new name.
 - **Never dispatch more than one subagent per refactor slice.** One pattern, one slice, one subagent. That's how we keep each refactor's reasoning scoped and reviewable.
@@ -105,7 +113,7 @@ Phase A of `/aiforging:setup` wrote an `enabledPlugins` block into this workspac
 
 Claude Code auto-activates both plugins whenever it runs in this directory, as long as they're installed at the machine level:
 
-- **`aiforging`** — provides `/aiforging:setup`, the `architecture-analyzer` skill, and the `hammer-refactor` skill template.
+- **`aiforging`** — provides `/aiforging:setup`, `/aiforging:new-feature` (aliased `/aiforging:forge`), `/aiforging:update-targets`, the `architecture-analyzer` skill, the `hammer-refactor` skill template, and the optional `browser-testing` and `review-loop` verification skills.
 - **`superpowers`** — provides `test-driven-development`, `brainstorming`, `writing-plans`, `executing-plans`, and `subagent-driven-development`. AI Forging depends on these directly and does not reinvent them.
 
 If Claude Code warns that either plugin isn't installed, install it once at the machine level with `/plugin install <name>@claude-plugins-official`, then reopen the session. If you installed from a different marketplace (e.g., `superpowers@superpowers-dev`), update the `enabledPlugins` key in `.claude/settings.json` to match, or re-run `/aiforging:setup` and tell it the right source when prompted.

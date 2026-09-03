@@ -45,11 +45,14 @@ Read <forge-workspace>/docs/features/<feature-name>/plan.md.
 Read <target-repo>/CLAUDE.md.
 Execute Slice <N> for target repo <target>.
 Check off each task in the plan as you complete it.
-Run <target>'s test command before considering the work complete.
-When all tasks for this slice are complete and tests are green, report back.
+Run ONLY the feature's named test suite (given in the plan's "Test suite" line) — never the
+full repository suite. If you believe the full suite must run, stop and ask.
+When all tasks for this slice are complete and the feature suite is green, report back.
 ```
 
 That is the entire prompt. No slice details, no test names, no paths, no pattern references — all of those live in plan.md and the target's `.aiforging/` and `CLAUDE.md`. The subagent resolves them itself.
+
+The one exception is the **scoped-test-run instruction**, which is repeated verbatim in every prompt even though it is also in the plan and in the conventions. That repetition is deliberate: running the whole suite to prove the work is done is the strongest default behavior an agent has, and it has to be countermanded in the prompt itself, where the agent cannot miss it. See rule 8 below.
 
 ### 3. Every subagent reads its target's `.aiforging/CLAUDE.md`
 
@@ -101,6 +104,16 @@ If a subagent reports incomplete work ("I couldn't run the tests because the fix
 
 The parent must either dispatch a follow-up subagent to resolve the blocker, escalate to the user, or both. Fabricated completion is the single worst thing a conductor can do, because every downstream slice dispatches against a false assumption and the entire feature quietly goes off the rails.
 
+### 8. Every dispatched agent runs the feature's suite, and only the feature's suite
+
+The feature has exactly one named test suite, registered before the first test was written and recorded in plan.md. Every Fire subagent, every Hammer subagent, and every fix agent runs **that suite and nothing else** — or a single file within it.
+
+**No dispatched agent runs the full repository suite. Ever.** Not to confirm its slice, not at the end of a sequence, not "to make sure nothing broke." The parent does not run it either. If an agent reports that it ran the full suite, that is a prompt defect: the instruction was missing or the agent overrode it, and either way the next dispatch must carry the instruction explicitly.
+
+Full details, including how to register a suite per stack, are in `tdd/feature-test-suite.md`.
+
+**The parent owes the human a handoff.** When the whole implementation phase is done — every work item, every Fire sequence green, every Hammer slice committed — the parent conversation must stop and tell the human, in words, that every run in the session was scoped, that a cross-feature regression would therefore not have surfaced, and that they should now run the full suite themselves. Give them the command. Do not run it on their behalf, and do not skip the message because the feature felt small.
+
 ## Portable subagent prompt templates
 
 These templates live here so the parent conversation can copy-paste them when dispatching. They are deliberately terse. Do not expand them with slice details; let plan.md carry that.
@@ -112,7 +125,8 @@ Read <forge-workspace>/docs/features/<feature>/plan.md.
 Read <target-repo-path>/CLAUDE.md.
 Execute Slice <N> for target repo "<target-name>".
 Check off each task in the plan as you complete it.
-Run the target's test command (as documented in <target-repo-path>/CLAUDE.md) before considering the work complete.
+Run ONLY the feature's named test suite (see the plan's "Test suite" line) before considering the
+work complete — NEVER the full repository suite. If you think the full suite must run, stop and ask.
 Report back with: (a) which tasks you checked off, (b) test-run output, (c) anything you could not finish and why.
 ```
 
@@ -123,7 +137,9 @@ Read <forge-workspace>/docs/features/<feature>/plan.md.
 Read <target-repo-path>/CLAUDE.md and <target-repo-path>/.aiforging/architecture/.
 Execute the backend-targeted Slice <N> for target repo "<target-name>", following the target's TDD workflow strictly.
 Check off each task in the plan as you complete it.
-Run the target's backend checks command (as documented in <target-repo-path>/CLAUDE.md — typically "composer checks" or equivalent) before considering the work complete.
+Run the target's static-analysis / style command (as documented in <target-repo-path>/CLAUDE.md —
+typically "composer checks" or equivalent), and run ONLY the feature's named test suite (see the
+plan's "Test suite" line). NEVER run the full repository suite; if you think it must run, stop and ask.
 When all backend tasks for this slice are complete and tests are green, if this is the closing [hammer] slice of a Fire sequence, dispatch the hammer-refactor skill as a subagent against the files you touched.
 Report back with: (a) which tasks you checked off, (b) test-run output, (c) anything you could not finish and why.
 ```
@@ -135,7 +151,8 @@ Read <forge-workspace>/docs/features/<feature>/plan.md.
 Read <target-repo-path>/CLAUDE.md and <target-repo-path>/.aiforging/frontend-testing/ if present.
 Execute the frontend-targeted Slice <N> for target repo "<target-name>".
 Check off each task in the plan as you complete it.
-Run the target's frontend checks command (as documented in <target-repo-path>/CLAUDE.md) before considering the work complete.
+Run the target's frontend checks command (as documented in <target-repo-path>/CLAUDE.md), and run
+ONLY the feature's named test suite / test directory — NEVER the full repository suite.
 Report back with: (a) which tasks you checked off, (b) test-run output, (c) anything you could not finish and why.
 ```
 
@@ -148,7 +165,8 @@ Pattern file to apply: <target-repo-path>/.aiforging/patterns/<pattern-name>.md
 Scope: the files changed in the current Fire sequence (provided as a list by the parent).
 Read <target-repo-path>/CLAUDE.md for repo-wide conventions.
 Apply the pattern to each in-scope file. Do not touch out-of-scope files.
-Run the target's test command after your changes. Do not consider the pass complete if tests fail.
+If you modified any code, run ONLY the feature's named test suite (given by the parent) after your
+changes — NEVER the full repository suite. Do not consider the pass complete if that suite fails.
 Report back with: (a) files modified, (b) which violations you found and fixed, (c) test-run output, (d) anything you could not fix and why.
 ```
 

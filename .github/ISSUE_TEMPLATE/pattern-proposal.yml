@@ -1,0 +1,56 @@
+name: Pattern or anti-pattern proposal
+description: Propose an addition to the pattern library.
+labels: ["pattern-library"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        See `CONTRIBUTING.md` and `conventions/refactoring/README.md` for the file format.
+
+        **The bar:** a fresh-context subagent that reads only your pattern file, with no other
+        knowledge of the codebase, must be able to find the problem and fix it correctly.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Pattern or anti-pattern?
+      options: ["Pattern (do this)", "Anti-pattern (stop doing this)"]
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: Name
+      description: Imperative verb phrase for a pattern, noun phrase for an anti-pattern.
+      placeholder: "Extract Service From Controller  /  Fat Controller"
+    validations:
+      required: true
+  - type: input
+    id: applies
+    attributes:
+      label: applies-to
+      description: Stack identifiers this applies to, or `all`.
+      placeholder: "symfony-php, doctrine"
+    validations:
+      required: true
+  - type: textarea
+    id: detection
+    attributes:
+      label: Detection signals
+      description: How a subagent greps for this. Concrete signals, not vibes — "the class feels too big" is not a signal.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters
+      description: The failure it causes, not the aesthetic it violates.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Before and after
+      description: Minimal code illustrating the actual refactor.
+      render: text
+    validations:
+      required: true

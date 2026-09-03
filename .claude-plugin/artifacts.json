@@ -1,0 +1,368 @@
+{
+  "$comment": [
+    "AI Forging artifact manifest — the single source of truth for everything the plugin",
+    "COPIES out of itself into a forge workspace or a target repo.",
+    "",
+    "Why this file exists: /aiforging:setup and /aiforging:update-targets both used to carry",
+    "their own hardcoded lists of skills and convention directories. Every new skill meant",
+    "editing two commands, and forgetting one meant the artifact installed on fresh setups but",
+    "never propagated to existing users — a silent upgrade gap. Both commands now read this",
+    "manifest instead, so adding an artifact is a one-line change here.",
+    "",
+    "Paths are relative to ${CLAUDE_PLUGIN_ROOT} (source) and to the scope root (dest).",
+    "Anything NOT listed here is never copied, diffed, or overwritten by any command."
+  ],
+  "schema": 1,
+  "plugin_version": "0.3.0",
+  "$scopes": {
+    "workspace": "The forge workspace root — separate directory (multi-repo), or the repo root (monorepo / single-repo).",
+    "target": "An onboarded target repo root, as reported by detect-project.py (the service-wrapper directory when app_subdir is set)."
+  },
+  "$update_policies": {
+    "diff-and-ask": "Diff against the plugin version; default Y to apply; back up before overwriting.",
+    "offer-default-no": "Commonly customized by the user. Diff is offered, default N.",
+    "seeded-only": "Only files carrying `seeded: true` frontmatter are eligible. Files without it are user-captured and never touched.",
+    "create-if-missing": "Create when absent; never modify an existing one.",
+    "never": "User-owned. No command reads, diffs, or writes it."
+  },
+  "artifacts": [
+    {
+      "id": "skill:capture-pattern",
+      "kind": "skill",
+      "label": "capture-pattern — reactive Tempering feedback loop",
+      "source": "skills/capture-pattern/SKILL.md",
+      "install": [
+        {
+          "scope": "workspace",
+          "dest": ".claude/skills/capture-pattern/SKILL.md",
+          "optional": false
+        },
+        {
+          "scope": "target",
+          "dest": ".claude/skills/capture-pattern/SKILL.md",
+          "optional": true,
+          "roles": [
+            "backend",
+            "fullstack"
+          ],
+          "bundle": "aiforging-skills"
+        }
+      ],
+      "update": "diff-and-ask",
+      "since": "0.1.0"
+    },
+    {
+      "id": "skill:hammer-refactor",
+      "kind": "skill",
+      "label": "hammer-refactor — the executable Hammer stage",
+      "source": "skills/hammer-refactor/SKILL.md",
+      "install": [
+        {
+          "scope": "target",
+          "dest": ".claude/skills/hammer-refactor/SKILL.md",
+          "optional": true,
+          "roles": [
+            "backend",
+            "fullstack"
+          ],
+          "bundle": "aiforging-skills"
+        }
+      ],
+      "update": "diff-and-ask",
+      "since": "0.1.0"
+    },
+    {
+      "id": "skill:browser-testing",
+      "kind": "skill",
+      "label": "browser-testing — walk testing.md in a real browser, fix nothing",
+      "source": "skills/browser-testing/SKILL.md",
+      "install": [
+        {
+          "scope": "workspace",
+          "dest": ".claude/skills/browser-testing/SKILL.md",
+          "optional": true
+        }
+      ],
+      "update": "diff-and-ask",
+      "since": "0.3.0",
+      "$note": "Workspace-only: its required input is <workspace>/docs/features/<feature>/testing.md, and it orchestrates across every implicated target. A copy inside a single target repo would be a skill whose primary input isn't in that repo."
+    },
+    {
+      "id": "skill:review-loop",
+      "kind": "skill",
+      "label": "review-loop — rounds of review, triage, and fix across implicated repos",
+      "source": "skills/review-loop/SKILL.md",
+      "install": [
+        {
+          "scope": "workspace",
+          "dest": ".claude/skills/review-loop/SKILL.md",
+          "optional": true
+        }
+      ],
+      "update": "diff-and-ask",
+      "since": "0.3.0",
+      "$note": "Workspace-only, same reason as browser-testing: it fans out across every implicated target and writes its round records into the feature folder."
+    },
+    {
+      "id": "skill:architecture-analyzer",
+      "kind": "skill",
+      "label": "architecture-analyzer — read-only advisory analysis pass",
+      "source": "skills/architecture-analyzer/SKILL.md",
+      "install": [],
+      "update": "never",
+      "since": "0.1.0",
+      "$note": "Plugin-only. Invoked as a plugin skill from the workspace during onboarding and on demand; never copied into a workspace or target. Listed here so the manifest is a complete inventory — a reader should not have to wonder whether an omission is deliberate."
+    },
+    {
+      "id": "conventions:architecture",
+      "kind": "convention-dir",
+      "label": "architecture conventions",
+      "source": "conventions/architecture/",
+      "install": [
+        {
+          "scope": "target",
+          "dest": ".aiforging/architecture/",
+          "optional": false,
+          "roles": [
+            "backend",
+            "fullstack"
+          ]
+        }
+      ],
+      "update": "diff-and-ask",
+      "since": "0.1.0"
+    },
+    {
+      "id": "conventions:tdd",
+      "kind": "convention-dir",
+      "label": "TDD conventions (Fire loop, feature test suite, harness contract, repository testing)",
+      "source": "conventions/tdd/",
+      "install": [
+        {
+          "scope": "target",
+          "dest": ".aiforging/tdd/",
+          "optional": false,
+          "roles": [
+            "backend",
+            "fullstack"
+          ]
+        }
+      ],
+      "update": "diff-and-ask",
+      "since": "0.1.0"
+    },
+    {
+      "id": "conventions:subagent-orchestration",
+      "kind": "convention-dir",
+      "label": "subagent orchestration conventions",
+      "source": "conventions/subagent-orchestration/",
+      "install": [
+        {
+          "scope": "target",
+          "dest": ".aiforging/subagent-orchestration/",
+          "optional": false,
+          "roles": [
+            "backend",
+            "fullstack"
+          ]
+        }
+      ],
+      "update": "diff-and-ask",
+      "since": "0.1.0"
+    },
+    {
+      "id": "conventions:frontend-testing",
+      "kind": "convention-dir",
+      "label": "Playwright frontend testing conventions (optional layer)",
+      "source": "conventions/frontend-testing/",
+      "install": [
+        {
+          "scope": "target",
+          "dest": ".aiforging/frontend-testing/",
+          "optional": true,
+          "roles": [
+            "frontend",
+            "fullstack"
+          ]
+        }
+      ],
+      "update": "diff-and-ask",
+      "since": "0.1.0",
+      "$note": "Only diffed on update if it was installed. Never installed by update-targets on a target that declined it."
+    },
+    {
+      "id": "conventions:features",
+      "kind": "convention-dir",
+      "label": "canonical feature-folder convention",
+      "source": "conventions/features/",
+      "install": [],
+      "update": "never",
+      "since": "0.1.0",
+      "$note": "Not copied anywhere directly. It is the source of truth; templates/docs-features-README.md is the portable mirror installed into the workspace. Change both together — see CLAUDE.md."
+    },
+    {
+      "id": "conventions:refactoring-readme",
+      "kind": "file",
+      "label": "pattern library README (two-tier model, pattern file format)",
+      "source": "conventions/refactoring/README.md",
+      "install": [
+        {
+          "scope": "workspace",
+          "dest": ".aiforging/README.md",
+          "optional": false
+        }
+      ],
+      "update": "diff-and-ask",
+      "since": "0.1.0",
+      "$note": "Workspace scope only — the pattern-library README belongs with the shared tier. Onboardings from before the two-tier model also wrote a copy to <target>/.aiforging/README.md; uninstall removes that legacy copy where it exists, but neither setup nor update-targets installs one there."
+    },
+    {
+      "id": "conventions:target-claude-md",
+      "kind": "rendered-template",
+      "label": "per-target .aiforging/CLAUDE.md pointer",
+      "source": "conventions/CLAUDE.md.template",
+      "install": [
+        {
+          "scope": "target",
+          "dest": ".aiforging/CLAUDE.md",
+          "optional": false,
+          "roles": [
+            "backend",
+            "fullstack"
+          ]
+        }
+      ],
+      "update": "diff-and-ask",
+      "since": "0.1.0",
+      "$note": "Render with the target's actual values (workspace path, target name) before diffing, or every target reports a spurious difference."
+    },
+    {
+      "id": "patterns:seeded",
+      "kind": "seeded-patterns",
+      "label": "seeded shared-tier patterns and anti-patterns",
+      "source": [
+        "conventions/refactoring/patterns/",
+        "conventions/refactoring/anti-patterns/"
+      ],
+      "install": [
+        {
+          "scope": "workspace",
+          "dest": [
+            ".aiforging/patterns/",
+            ".aiforging/anti-patterns/"
+          ],
+          "optional": false
+        }
+      ],
+      "update": "seeded-only",
+      "since": "0.1.0",
+      "$note": "Shared tier only. Onboardings from before the two-tier model seeded patterns into the target-local tier instead; uninstall removes `seeded: true` files from a target as legacy cleanup, and update-targets offers to migrate them to the shared tier. Neither ever touches a file lacking `seeded: true` — those are user captures."
+    },
+    {
+      "id": "patterns:target-local",
+      "kind": "directory",
+      "label": "target-local pattern tier (created empty; user-owned thereafter)",
+      "source": null,
+      "install": [
+        {
+          "scope": "target",
+          "dest": [
+            ".aiforging/patterns/",
+            ".aiforging/anti-patterns/"
+          ],
+          "optional": false,
+          "roles": [
+            "backend",
+            "fullstack"
+          ]
+        }
+      ],
+      "update": "create-if-missing",
+      "since": "0.1.0",
+      "$note": "Contents are user-captured. No command has authority over them."
+    },
+    {
+      "id": "generated:analysis",
+      "kind": "generated",
+      "label": ".aiforging/ANALYSIS.md — architecture-analyzer output snapshot",
+      "source": null,
+      "install": [
+        {
+          "scope": "target",
+          "dest": ".aiforging/ANALYSIS.md",
+          "optional": true,
+          "roles": [
+            "backend",
+            "fullstack"
+          ]
+        }
+      ],
+      "update": "never",
+      "since": "0.1.0",
+      "$note": "Not copied from the plugin — GENERATED by the architecture-analyzer skill during onboarding, and refreshed only by re-running it. update-targets must never diff or overwrite it (it describes the target, not the plugin). uninstall DOES remove it, because it is a plugin-produced artifact rather than something the user wrote. Listed so both commands can find it in the manifest instead of remembering it."
+    },
+    {
+      "id": "template:workspace-claude-md",
+      "kind": "template",
+      "label": "workspace CLAUDE.md",
+      "source": "templates/workspace-CLAUDE.md",
+      "install": [
+        {
+          "scope": "workspace",
+          "dest": "CLAUDE.md",
+          "optional": false
+        }
+      ],
+      "update": "offer-default-no",
+      "since": "0.1.0"
+    },
+    {
+      "id": "template:workspace-readme",
+      "kind": "template",
+      "label": "workspace README.md",
+      "source": "templates/workspace-README.md",
+      "install": [
+        {
+          "scope": "workspace",
+          "dest": "README.md",
+          "optional": false
+        }
+      ],
+      "update": "offer-default-no",
+      "since": "0.1.0"
+    },
+    {
+      "id": "template:features-readme",
+      "kind": "template",
+      "label": "docs/features/README.md — the feature folder convention",
+      "source": "templates/docs-features-README.md",
+      "install": [
+        {
+          "scope": "workspace",
+          "dest": "docs/features/README.md",
+          "optional": false
+        }
+      ],
+      "update": "diff-and-ask",
+      "since": "0.1.0",
+      "$note": "Default Y rather than offer-default-no: this one carries the framework rules that skills depend on (testing.md, the scoped-suite rule, the slice format). A stale copy silently degrades every feature planned against it. Mirrors conventions/features/README.md — change both together."
+    },
+    {
+      "id": "template:feature-testing",
+      "kind": "template",
+      "label": "testing.md skeleton — human QA checklist",
+      "source": "templates/feature-testing.md",
+      "install": [],
+      "update": "never",
+      "since": "0.3.0",
+      "$note": "Not installed into any scope. Copied per-feature by /aiforging:new-feature into docs/features/<name>/testing.md, where it becomes a user-owned document. Listed here so update-targets knows to leave every testing.md alone."
+    }
+  ],
+  "user_owned": [
+    "docs/features/** — EXCEPT docs/features/README.md, which is the installed convention (see template:features-readme) and is diffed at default Y",
+    ".aiforging/patterns/*.md without `seeded: true` frontmatter",
+    ".aiforging/anti-patterns/*.md without `seeded: true` frontmatter",
+    ".aiforging/ANALYSIS.md — describes the target, not the plugin; never diffed or overwritten by update-targets (uninstall does remove it)",
+    ".claude/settings.local.json"
+  ]
+}

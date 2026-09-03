@@ -48,12 +48,12 @@ Before anything else, locate the forge workspace and determine the current targe
 
 The target repo has `.aiforging/` at its root. The forge workspace is found by:
 1. Checking `~/.claude/aiforging.json` for `active_workspace`.
-2. If found, verify the path exists and contains `docs/features/README.md` with the AI Forging marker.
+2. If found, verify the path exists, its `CLAUDE.md` contains the string `AI Forging workspace`, and it has a `docs/features/` directory. That pair is what `/aiforging:setup` Phase A writes.
 3. If not found, ask the user: "Where is your forge workspace?"
 
 **Case B — session is running inside a monorepo / single-repo workspace.**
 
-The workspace IS the repo (or the repo root). Detect with: `docs/features/README.md` exists at the repo root with the AI Forging marker. The target is either the repo root itself (single-repo) or a sub-project within it (monorepo). If the repo has sub-projects with their own `.aiforging/`, resolve which sub-project the user is working in.
+The workspace IS the repo (or the repo root). Detect with: the repo root's `CLAUDE.md` contains `AI Forging workspace` and `docs/features/` exists. The target is either the repo root itself (single-repo) or a sub-project within it (monorepo). If the repo has sub-projects with their own `.aiforging/`, resolve which sub-project the user is working in.
 
 **Case C — session is running inside the forge workspace itself (multi-repo).**
 
@@ -93,9 +93,10 @@ For each approved `(anti-pattern, file, line-range)` slice, use the Task tool (v
 
 1. The anti-pattern file path (the subagent reads it fresh).
 2. The target file path and line range.
-3. Absolute rule: "All feature-relevant tests must still pass at the end. Run ONLY the test class(es) or test directory for the feature being refactored — not the full repo suite. If any test fails, revert and report what you tried."
-4. Absolute rule: "Do not touch any file outside the specified target unless the anti-pattern file explicitly says the refactor requires it."
-5. A reminder to follow the corresponding pattern file (if the anti-pattern names one) from `.aiforging/patterns/`.
+3. **The feature's test suite name and its exact run command**, taken from `plan.md`'s "Test suite" line (or from the user, in targeted mode).
+4. Absolute rule: "If you modify any code, run ONLY the feature's named test suite — `<the command>`. **NEVER run the full repository suite**, not to confirm your slice and not to make sure nothing broke. If you believe the full suite must run, stop and say so instead of running it. If the feature suite fails, revert and report what you tried."
+5. Absolute rule: "Do not touch any file outside the specified target unless the anti-pattern file explicitly says the refactor requires it."
+6. A reminder to follow the corresponding pattern file (if the anti-pattern names one) from `.aiforging/patterns/`.
 
 Each subagent runs independently. The parent context waits for the report, reviews it, and moves on.
 
@@ -103,25 +104,36 @@ Each subagent runs independently. The parent context waits for the report, revie
 
 After each subagent reports back, the parent context:
 
-1. Runs the **feature's test suite** (not the full repo suite) to confirm green. Scope the run to the test class(es) or test directory that cover the feature being refactored — e.g., `phpunit --filter InvoiceTaxTest` or `pytest tests/invoicing/`. If red, roll back the slice (`git checkout -- .`) and report the failure — do not proceed to the next slice.
+1. **If the slice modified any code**, runs the **feature's named test suite** — and only that suite — to confirm green: `./bin/phpunit --testsuite invoice-tax`, `pytest -m invoice_tax`, `vitest run src/invoicing/tax`. The suite name comes from `plan.md`. **Never the full repository suite** (see `conventions/tdd/feature-test-suite.md`). If a slice changed no code, there is nothing to re-verify — say so and move on. If the suite is red, roll back the slice (`git checkout -- .`) and report the failure — do not proceed to the next slice.
 2. Shows the diff to the user for approval.
 3. If approved, make an **atomic git commit** for this slice. The commit message should name the pattern/anti-pattern applied and the target file(s), e.g., `refactor: extract service from CreateInvoiceController (fat-controller)`. This gives the user a clean, reviewable history where each refactor is its own commit — easy to revert individually if a problem surfaces later.
 
 **Second human gate:** user reviews each slice before the commit and before the next slice dispatches.
 
-### Step 6 — Tempering handoff
+### Step 6 — Tempering handoff and the full-suite reminder
 
 When all approved slices are done and green, write a short summary of what was refactored and which patterns/anti-patterns were applied. That summary feeds the Tempering stage (knowledge capture) — typically, new patterns or anti-patterns that emerged during the refactor get written to `.aiforging/patterns/` or `.aiforging/anti-patterns/` as new `.md` files, one per pattern, following the format in `conventions/refactoring/README.md`.
 
-Offer the user a final verification step:
+**Then hand the full test suite to the human — in words, every time.** Do not run it yourself.
 
-> All slices are done and each passed the feature's test suite individually. You may want to run the **full repo test suite** to catch any cross-feature regressions from the refactored code. You can start reviewing the per-slice commits while the suite runs — each refactor is its own atomic commit, individually revertible if the full suite surfaces something.
+> **Hammer is complete. Every slice passed the `<suite-name>` suite individually.**
+>
+> Every test run in this pass was scoped to that one suite, which is what kept the loop fast — but it also means a regression in a *different* feature would not have shown up here. Before you open a PR, please run your full test suite yourself:
+>
+> ```
+> <the repo's full-suite command>
+> ```
+>
+> Each refactor is its own atomic commit, so if the full suite surfaces something, `git log --oneline` points straight at the slice to revert. You can start reviewing the diffs while it runs.
 
-This is a recommendation, not a gate. The user can start auditing the diffs immediately. If they want to run the suite, they can do it in parallel. Do not block on this — proceed to the Tempering summary either way.
+This message is **not optional and not conditional on how the pass went.** State it even when the pass was small, even when every slice was trivial, even when you are confident. Confidence is exactly the state in which it gets skipped, and it is the only thing standing between a deliberately scoped loop and a silent cross-feature regression. See `conventions/tdd/feature-test-suite.md` for why the framework accepts that trade deliberately rather than pretending it away.
+
+Running the suite is the human's job, not a gate on this skill. Deliver the message and proceed to the Tempering summary either way.
 
 ## Safety rules (hard refusals)
 
-- **No refactor without green tests.** If the feature's test suite is not passing at the start, stop.
+- **No refactor without green tests.** If the feature's named test suite is not passing at the start, stop.
+- **No full-suite runs.** Neither this skill nor any subagent it dispatches runs the full repository suite, for any reason. If you think it needs to run, tell the human and let them run it.
 - **No refactor of untested code.** If the target file has no tests, stop and tell the user to run Fire first.
 - **No weakening tests.** If a test appears to block a refactor, the refactor is wrong, not the test.
 - **No cross-boundary refactors without explicit approval.** Changing a public API, a database schema, or a cross-module contract is an architectural decision, not a refactor.
@@ -133,6 +145,7 @@ This is a recommendation, not a gate. The user can start auditing the diffs imme
 - **Fire** (`superpowers:test-driven-development`) comes first. This skill refuses to run if Fire hasn't produced a green suite.
 - **Plan writing** (`superpowers:writing-plans`) produces the `plan.md` this skill reads in Step 1.
 - **Subagent dispatch** (`superpowers:subagent-driven-development`) is the transport this skill uses in Step 4. This skill's job is to decide *what* to dispatch; superpowers' job is *how* to dispatch it. The *policy* layer that tells Hammer (and every other plan-driven dispatch point) how to construct subagent prompts, how to order dispatches, and what the subagents are expected to read before starting lives in `conventions/subagent-orchestration/README.md`. Hammer follows that convention — it is not a special case.
+- **Browser testing** (`aiforging:browser-testing`) and **review loop** (`aiforging:review-loop`) come *after* Hammer, once the feature is built to presumed-working. Hammer shapes the code; those two check the running product and the diff. Do not fold either into a Hammer pass.
 - **Architecture analyzer** (`aiforging:architecture-analyzer`) is a sibling skill that runs a non-destructive advisory pass. Hammer is the executable counterpart. Analyzer says "your code is shaped like X, here are the deltas from the ideal." Hammer takes those deltas and actually closes them, one slice at a time.
 
 ## Pattern library format
@@ -173,16 +186,30 @@ Hammer skill:
   3. Presents ranked list; user approves all three slices.
   4. Dispatches subagent A with extract-service-from-controller.md and
      CreateInvoiceController.php:45-120. Waits for report.
-  5. Test suite runs: green. Shows diff. User approves. Commits:
+  5. Feature suite (`--testsuite invoice-tax`) runs: green. Shows diff. User
+     approves. Commits:
      "refactor: extract service from CreateInvoiceController (fat-controller)"
   6. Dispatches subagent B with primitive-obsession.md and TaxRate usages.
      Waits for report.
-  7. Test suite runs: green. Shows diff. User approves. Commits:
+  7. Feature suite runs: green. Shows diff. User approves. Commits:
      "refactor: introduce TaxRate value object (primitive-obsession)"
-  8. All slices done. Suggests running the full suite once more as a
-     final check — user can start reviewing commits in parallel.
+  8. All slices done. Tells the user — in words — that every run was scoped
+     to invoice-tax and that they should now run the full suite themselves;
+     gives them the command and notes each slice is individually revertible.
   9. Writes summary to plan.md. Tempering stage begins.
 ```
+
+---
+
+## A note on the paths in this file
+
+References like `conventions/tdd/feature-test-suite.md` name files in the **AI Forging plugin's** conventions library. Where you actually find a given file depends on where you are:
+
+- **In an onboarded target repo** — the architecture, tdd, and subagent-orchestration conventions are installed at `<target>/.aiforging/`, so `conventions/tdd/feature-test-suite.md` is `<target>/.aiforging/tdd/feature-test-suite.md`.
+- **In the forge workspace** — the feature convention is installed at `docs/features/README.md`, and the pattern-library README at `.aiforging/README.md`.
+- **In the plugin itself** — everything is under `${CLAUDE_PLUGIN_ROOT}/conventions/`, which is readable but never writable.
+
+If a referenced file is not where you expect, say so rather than proceeding on a guess about what it said.
 
 ---
 
