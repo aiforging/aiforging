@@ -113,7 +113,7 @@ Phase A of `/aiforging:setup` wrote an `enabledPlugins` block into this workspac
 
 Claude Code auto-activates both plugins whenever it runs in this directory, as long as they're installed at the machine level:
 
-- **`aiforging`** — provides `/aiforging:setup`, `/aiforging:new-feature` (aliased `/aiforging:forge`), `/aiforging:update-targets`, the `architecture-analyzer` skill, the `hammer-refactor` skill template, and the optional `browser-testing` and `review-loop` verification skills.
+- **`aiforging`** — provides `/aiforging:setup`, `/aiforging:new-feature` (aliased `/aiforging:forge`), `/aiforging:update-targets`, `/aiforging:uninstall`, and the `architecture-analyzer` skill. Four more skills are each available both automatically and as a command you can type: `/aiforging:hammer-refactor`, `/aiforging:capture-pattern`, and the optional verification pair `/aiforging:browser-testing` and `/aiforging:review-loop`.
 - **`superpowers`** — provides `test-driven-development`, `brainstorming`, `writing-plans`, `executing-plans`, and `subagent-driven-development`. AI Forging depends on these directly and does not reinvent them.
 
 If Claude Code warns that either plugin isn't installed, install it once at the machine level with `/plugin install <name>@claude-plugins-official`, then reopen the session. If you installed from a different marketplace (e.g., `superpowers@superpowers-dev`), update the `enabledPlugins` key in `.claude/settings.json` to match, or re-run `/aiforging:setup` and tell it the right source when prompted.

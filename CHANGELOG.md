@@ -33,7 +33,7 @@ This release adds the two stages that come *after* the forge — checking the ru
 
 - **`templates/feature-testing.md`** — the `testing.md` skeleton, copied per-feature by `/aiforging:new-feature`.
 
-- **`/aiforging:browser-testing` and `/aiforging:review-loop`** — thin command wrappers so both stages have a name you can type, following the same pointer-to-one-source-of-truth pattern as `/aiforging:forge`.
+- **A typeable command for every user-invocable skill.** `/aiforging:browser-testing`, `/aiforging:review-loop`, `/aiforging:hammer-refactor`, and `/aiforging:capture-pattern` are now thin command pointers at their skills, following the same one-source-of-truth pattern as `/aiforging:forge`. The last two closed a documentation bug rather than adding a capability: `/aiforging:setup` had been telling users for two releases that they could invoke `hammer-refactor` and `capture-pattern` as commands, and they could not. Each pointer holds no rules of its own — it reads the SKILL.md and follows it, so the skill and the command can never drift.
 
 - **Frontmatter on `/aiforging:update-targets` and `/aiforging:uninstall`**, which previously had none and so appeared in the command list without a description.
 

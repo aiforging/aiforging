@@ -650,11 +650,11 @@ For projects with `role` == `frontend`: skip this step. Frontend projects can op
 
 For projects with `role` in (`backend`, `fullstack`), offer to install **two** skills inside the target repo.
 
-**Important context for the user prompt:** If you have the `aiforging` plugin installed, these skills are ALREADY available to you as plugin commands — you can invoke them anytime via `/aiforging:hammer-refactor` or `/aiforging:capture-pattern`. The purpose of copying them into the target repo is **teammate discoverability**: anyone who clones this repo gets the skills automatically via `.claude/skills/`, even if they haven't installed the aiforging plugin on their machine. This is the same pattern as checking in an `.editorconfig` or a linter config — the tool works without it, but the repo-local copy ensures consistency across the team.
+**Important context for the user prompt:** If you have the `aiforging` plugin installed, these skills are ALREADY available to you — Claude activates them on its own when the situation calls for it, and each also has a command you can type (`/aiforging:hammer-refactor`, `/aiforging:capture-pattern`). The purpose of copying them into the target repo is **teammate discoverability**: anyone who clones this repo gets the skills automatically via `.claude/skills/`, even if they haven't installed the aiforging plugin on their machine. This is the same pattern as checking in an `.editorconfig` or a linter config — the tool works without it, but the repo-local copy ensures consistency across the team.
 
 Present this distinction clearly to the user:
 
-> **A note on how these skills work:** Since you have the `aiforging` plugin installed, you can already use `hammer-refactor` and `capture-pattern` as plugin skills — they're available right now. What I'm offering here is to **also** copy them into this target repo at `<target>/.claude/skills/` so that teammates who clone the repo get them automatically, even without installing the aiforging plugin. Think of it like checking in a shared config file.
+> **A note on how these skills work:** Since you have the `aiforging` plugin installed, `hammer-refactor` and `capture-pattern` are available to you right now — both as skills Claude reaches for on its own, and as `/aiforging:hammer-refactor` and `/aiforging:capture-pattern` when you want to ask directly. What I'm offering here is to **also** copy them into this target repo at `<target>/.claude/skills/` so that teammates who clone the repo get them automatically, even without installing the aiforging plugin. Think of it like checking in a shared config file.
 >
 > The two skills:
 >

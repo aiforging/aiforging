@@ -45,7 +45,7 @@ Every new session should start by reading `PLAN.md` and end by updating the sess
 
 ```
 .claude-plugin/             Plugin manifest, marketplace definition, and artifacts.json
-commands/                   Slash commands. setup, new-feature (+ forge alias), browser-testing, review-loop, update-targets, uninstall. The last four of those are thin pointers — the rules live in the skill or, for setup, in this file's directory map
+commands/                   Slash commands. setup, new-feature (+ forge alias), update-targets, uninstall, plus one thin pointer per user-invocable skill: hammer-refactor, capture-pattern, browser-testing, review-loop. A pointer holds NO rules — it Reads the SKILL.md and follows it. If you want to add a rule, add it to the skill
 scripts/                    Helper scripts invoked by commands (uv run, or python3 fallback)
   detect-project.py         Read-only stack detection → JSON
   configure-directories.py  Manages permissions.additionalDirectories in settings.local.json

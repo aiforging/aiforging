@@ -160,6 +160,8 @@ aiforging/
 │   ├── setup.md                    # /aiforging:setup (Phase A + Phase B)
 │   ├── new-feature.md              # /aiforging:new-feature — daily-driver feature scaffolding
 │   ├── forge.md                    # /aiforging:forge — thin alias for new-feature
+│   ├── hammer-refactor.md          # /aiforging:hammer-refactor — pointer to the skill
+│   ├── capture-pattern.md          # /aiforging:capture-pattern — pointer to the skill
 │   ├── browser-testing.md          # /aiforging:browser-testing — pointer to the skill
 │   ├── review-loop.md              # /aiforging:review-loop — pointer to the skill
 │   ├── update-targets.md           # /aiforging:update-targets — manifest-driven propagation
