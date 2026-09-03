@@ -57,6 +57,8 @@ This release adds the two stages that come *after* the forge — checking the ru
 
 - **`docs/feature-workflow.svg`** gained a VERIFY band showing `browser-testing` and the human's own browser pass running *concurrently*, `review-loop` after them, and a final human gate for the full test suite.
 
+- **The Upgrading instructions actually work now.** The README told users to run `/plugin update aiforging@aiforging`, which is not a command — updating an installed plugin is a shell command (`claude plugin update`), and there is no slash form. It also omitted the marketplace refresh, assumed one of the two possible marketplace sources, and defaulted to user scope. That last one broke for essentially every AI Forging user: because `/aiforging:setup` writes plugin enablement into the *project's* settings, `aiforging` typically installs at **project** scope, and `claude plugin update` without `--scope project` fails with `Plugin "aiforging" is not installed at scope user` — a message that reads like "not installed" when it means "wrong scope." The section now starts by having you run `claude plugin list` to read off your own marketplace and scope, and explains that error explicitly.
+
 - **The "research preview" label is retired.** The plugin is v0.3.0, open source, MIT licensed, and running against real production codebases. The README and the website say that instead.
 
 ### Notes for existing users

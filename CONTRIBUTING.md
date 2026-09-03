@@ -42,7 +42,13 @@ git status --short && git rev-parse --short HEAD
 
 Commit or stash anything outstanding. A dirty tree makes it impossible to tell afterwards what the command did and what you did.
 
-**Then upgrade** — the plugin, then the propagation — following [Light upgrade](#light-upgrade-recommended) in the README.
+Also record what you are upgrading *from*:
+
+```bash
+claude plugin list      # note the version, the marketplace, and the scope
+```
+
+**Then upgrade** — the plugin, then the propagation — following [Light upgrade](README.md#light-upgrade-recommended) in the README. Confirm with `claude plugin list` that the version actually moved before running `/aiforging:update-targets`; propagating from a plugin that did not update produces a confusing "nothing to do" that looks like a bug in the command.
 
 **Then check these, in this order.** The first three are correctness; the rest are whether it is pleasant to use.
 

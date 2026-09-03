@@ -234,23 +234,52 @@ The plugin code itself updates when you pull a new version from the marketplace.
 
 Update the plugin at the machine level, then propagate the changes.
 
-**Step 1 — update the plugin.** Updating an installed plugin is a *shell* command, not a slash command — there is no `/plugin update`. Run this in your terminal, using whichever marketplace you installed from:
+**Step 1 — find out what you actually have.** Updating an installed plugin is a *shell* command, not a slash command — there is no `/plugin update` — and it needs two details that vary per user. Run this in your terminal:
 
 ```bash
-# If you installed from this repo's marketplace:
+claude plugin list
+```
+
+```
+Installed plugins:
+  ❯ aiforging@aiforging          ← the marketplace you installed from
+    Version: 0.2.0
+    Scope: project               ← the scope you installed at
+    Status: ✔ enabled
+```
+
+Note the **marketplace** (after the `@`) and the **scope**. You need both in step 2.
+
+> **Expect `Scope: project`.** `/aiforging:setup` writes plugin enablement into your *project's* `.claude/settings.json` — that's how teammates who clone the repo get the plugin activated without touching their personal config. The side effect is that `aiforging` (and `superpowers`) usually end up installed at **project** scope, not user scope. Since `claude plugin update` defaults to `--scope user`, omitting the scope gives you:
+>
+> ```
+> ✘ Failed to update plugin "aiforging@aiforging": Plugin "aiforging" is not installed at scope user
+> ```
+>
+> That message means "wrong scope," not "not installed." Pass the scope `claude plugin list` reported.
+
+**Step 2 — update the marketplace, then the plugin.** Substitute the marketplace and scope from step 1:
+
+```bash
+# Typical case — installed from this repo's marketplace, at project scope.
+# Run from inside the repo/workspace where it's installed:
 claude plugin marketplace update aiforging
-claude plugin update aiforging@aiforging
+claude plugin update aiforging@aiforging --scope project
 
 # If you installed from Anthropic's official marketplace instead:
 claude plugin marketplace update claude-plugins-official
-claude plugin update aiforging@claude-plugins-official
+claude plugin update aiforging@claude-plugins-official --scope project
+
+# If plugin list said "Scope: user", drop the flag (user is the default).
 ```
 
-The marketplace refresh comes first because it updates the *catalog*; the second command updates the *plugin*. Not sure which source you used? `claude plugin list` will tell you.
+The marketplace refresh comes first because it updates the *catalog*; the second command updates the *plugin*.
 
 You may be able to skip both: marketplaces can auto-update installed plugins in the background at startup. That is **on by default for `claude-plugins-official`** and **off by default for third-party marketplaces** like this one — so if you installed from `aiforging/aiforging`, you almost certainly need to run the commands above. You can toggle it per marketplace under `/plugin` → Marketplaces.
 
-**Step 2 — propagate to your workspace and targets.** Start Claude from your forge workspace and run:
+Re-run `claude plugin list` afterwards and confirm the version actually moved. An update that silently no-ops is the failure mode that wastes the most time next.
+
+**Step 3 — propagate to your workspace and targets.** Start Claude from your forge workspace and run:
 
 ```
 /aiforging:update-targets
@@ -275,10 +304,11 @@ If you're jumping across major versions, or if your setup feels tangled from exp
 ```
 
 ```bash
-# 2. In your terminal — update the plugin (see Step 1 above for the
-#    claude-plugins-official variant, and for how to tell which you have):
+# 2. In your terminal — update the plugin. Substitute the marketplace and
+#    scope that `claude plugin list` reports (see Steps 1-2 above; project
+#    scope is the common case for AI Forging users):
 claude plugin marketplace update aiforging
-claude plugin update aiforging@aiforging
+claude plugin update aiforging@aiforging --scope project
 ```
 
 ```
