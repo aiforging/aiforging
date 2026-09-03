@@ -279,6 +279,16 @@ You may be able to skip both: marketplaces can auto-update installed plugins in 
 
 Re-run `claude plugin list` afterwards and confirm the version actually moved. An update that silently no-ops is the failure mode that wastes the most time next.
 
+> **Nothing in your repo will have changed yet, and that is correct.** Plugin code lives in Claude Code's own cache (`~/.claude/plugins/cache/...`) no matter which scope you installed at — project scope controls registration, not file location. The `.aiforging/` directories in your workspace and targets are *copies* made at onboarding time, and nothing but step 3 ever touches them. If `git status` is empty after step 2, the update worked.
+
+You can see the resulting drift directly. After updating to a version that added a convention, the plugin has it and your repo does not:
+
+```bash
+ls .aiforging/tdd/          # 0.2.0 install: no feature-test-suite.md
+```
+
+Closing that gap is step 3's entire job.
+
 **Step 3 — propagate to your workspace and targets.** Start Claude from your forge workspace and run:
 
 ```
