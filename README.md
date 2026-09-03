@@ -232,15 +232,33 @@ The plugin code itself updates when you pull a new version from the marketplace.
 
 ### Light upgrade (recommended)
 
-Update the plugin at the machine level, then propagate the changes:
+Update the plugin at the machine level, then propagate the changes.
+
+**Step 1 — update the plugin.** Updating an installed plugin is a *shell* command, not a slash command — there is no `/plugin update`. Run this in your terminal, using whichever marketplace you installed from:
+
+```bash
+# If you installed from this repo's marketplace:
+claude plugin marketplace update aiforging
+claude plugin update aiforging@aiforging
+
+# If you installed from Anthropic's official marketplace instead:
+claude plugin marketplace update claude-plugins-official
+claude plugin update aiforging@claude-plugins-official
+```
+
+The marketplace refresh comes first because it updates the *catalog*; the second command updates the *plugin*. Not sure which source you used? `claude plugin list` will tell you.
+
+You may be able to skip both: marketplaces can auto-update installed plugins in the background at startup. That is **on by default for `claude-plugins-official`** and **off by default for third-party marketplaces** like this one — so if you installed from `aiforging/aiforging`, you almost certainly need to run the commands above. You can toggle it per marketplace under `/plugin` → Marketplaces.
+
+**Step 2 — propagate to your workspace and targets.** Start Claude from your forge workspace and run:
 
 ```
-# Update the plugin:
-/plugin update aiforging@aiforging
-
-# From your forge workspace, propagate updates to all targets:
 /aiforging:update-targets
 ```
+
+If the install summary asked you to run `/reload-plugins`, do that first (and re-run it as `/reload-plugins --force` if it warns about re-reading the conversation).
+
+> **Upgrading from v0.2.0, or from an older workspace?** This path is newly manifest-driven and has had limited real-world mileage. If you run it, `CONTRIBUTING.md` has a short [checklist of what to verify afterwards](CONTRIBUTING.md#testing-the-upgrade-path) — seven checks, three of them about what must *not* have changed — and a field-report template. A clean run is as useful to hear about as a broken one.
 
 `/aiforging:update-targets` diffs every copied artifact (conventions, skills, seeded patterns) against the new plugin version and asks before overwriting. Your user-captured patterns and everything under `docs/features/` — specs, plans, `testing.md` checklists, and the `ai-testing/` and `ai-reviews/` run records — are never touched. This is the right choice for minor version bumps and incremental improvements, and it is the intended path for v0.2.0 → v0.3.0.
 
@@ -251,13 +269,20 @@ As of v0.3.0 the command is **manifest-driven**: it reads `.claude-plugin/artifa
 If you're jumping across major versions, or if your setup feels tangled from experimental changes, a clean reinstall is the safest path:
 
 ```
-# 1. Remove all plugin artifacts (preserves your feature specs and user patterns):
+# 1. In Claude, from your forge workspace — remove all plugin artifacts
+#    (preserves your feature specs and user-captured patterns):
 /aiforging:uninstall
+```
 
-# 2. Update the plugin:
-/plugin update aiforging@aiforging
+```bash
+# 2. In your terminal — update the plugin (see Step 1 above for the
+#    claude-plugins-official variant, and for how to tell which you have):
+claude plugin marketplace update aiforging
+claude plugin update aiforging@aiforging
+```
 
-# 3. Re-bootstrap from scratch:
+```
+# 3. Back in Claude — re-bootstrap from scratch:
 /aiforging:setup
 ```
 

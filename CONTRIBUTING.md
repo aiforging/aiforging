@@ -28,6 +28,34 @@ Some things are deliberate and will not change without a strong argument. Knowin
 - **`browser-testing` never fixes what it finds.** A failing checklist step means the product and the spec disagree. Which one is wrong is a human decision.
 - **Delegate to `superpowers`, don't reimplement it.** The TDD loop, brainstorming, plan writing, plan execution, and subagent dispatch all come from [`superpowers`](https://github.com/obra/superpowers). AI Forging is the architecture-and-domain layer on top. A PR that reimplements one of those will be declined.
 
+## Testing the upgrade path
+
+`/aiforging:update-targets` is the command the whole framework leans on and the one least exercised. If you have a workspace that predates the current release, running this and reporting what happened is worth more than most code contributions.
+
+**Set up an honest "before".** The interesting case is a workspace that was genuinely onboarded at an older version, with at least two targets and, ideally, one onboarded before the two-tier pattern model. A fresh workspace created five minutes ago tests nothing, because there is no drift to reconcile.
+
+Make the result measurable before you start. In the workspace and in each target repo:
+
+```bash
+git status --short && git rev-parse --short HEAD
+```
+
+Commit or stash anything outstanding. A dirty tree makes it impossible to tell afterwards what the command did and what you did.
+
+**Then upgrade** — the plugin, then the propagation — following [Light upgrade](#light-upgrade-recommended) in the README.
+
+**Then check these, in this order.** The first three are correctness; the rest are whether it is pleasant to use.
+
+1. **Nothing under `docs/features/` changed.** Not a spec, not a plan, not a `testing.md`, not an `ai-testing/` or `ai-reviews/` record. The one permitted exception is `docs/features/README.md`, which is the installed convention. `git status` in the workspace is the check, and any other change here is a serious bug — report it immediately.
+2. **User-captured patterns survived.** Every `.md` in a `patterns/` or `anti-patterns/` directory *without* `seeded: true` frontmatter must be byte-identical afterwards, in both tiers.
+3. **`.aiforging/ANALYSIS.md` was not touched** in any target. It describes your codebase, not the plugin.
+4. **New artifacts arrived as offers, not surprises.** Anything added since your installed version should have been presented with a line saying what it does, and you should have been able to decline it. If something appeared without being offered, say so.
+5. **Previously-declined optional artifacts stayed declined.** If you said no to the Playwright conventions at onboarding, they should not have reappeared.
+6. **Backups exist for anything overwritten** — `*.bak-*` next to the original. Note that target repos are separate git repos whose `.gitignore` may not cover that pattern.
+7. **The summary told you what changed in *behavior*,** not just which files moved. If you finished the run unsure what is now different about how the framework works, that is a real finding even though nothing crashed.
+
+**Report it either way.** A run that went cleanly is as useful to know about as one that broke — open a [field report](https://github.com/aiforging/aiforging/issues/new?template=field-report.yml) with your stack, how old the workspace was, how many targets, and which of the seven checks you actually verified. Please say which ones you *didn't* check rather than leaving them ambiguous; "I verified 1-3 and didn't look at the rest" is a useful report, and "seemed fine" is not.
+
 ## Contributing a pattern or anti-pattern
 
 The pattern library is where contributions compound fastest, and it's the easiest place to start.
