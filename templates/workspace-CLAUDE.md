@@ -1,3 +1,6 @@
+<!-- AI Forging workspace marker — tooling greps this file for "AI Forging workspace" (or the older "AI Forging forge workspace").
+     Keep this line, or the phrase below, intact. Losing both makes the directory
+     stop being recognized as a workspace. -->
 # Forge Workspace — Claude Context
 
 > **You are in an AI Forging workspace.** This is NOT a codebase. It is a central orchestration directory from which cross-repo feature work is driven. The actual code lives in the repos registered under `permissions.additionalDirectories` in `.claude/settings.local.json` (the gitignored, per-user settings file — see the "Settings file split" section below).

@@ -78,7 +78,7 @@ The workspace IS the repo root. If the repo has sub-projects with their own `.ai
 Detect with:
 
 ```bash
-test -f ./CLAUDE.md && grep -q "AI Forging workspace" ./CLAUDE.md && \
+test -f ./CLAUDE.md && grep -qE "AI Forging( forge)? workspace" ./CLAUDE.md && \
   test -f ./.claude/settings.local.json && echo "IN_FORGE_WORKSPACE"
 ```
 

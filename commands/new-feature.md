@@ -33,14 +33,14 @@ The command can be invoked from two places: inside a forge workspace (the normal
 
 The current directory is a forge workspace if ALL of the following are true:
 
-- `./CLAUDE.md` exists AND contains the marker string `AI Forging workspace` (written by `/aiforging:setup` Phase A via `templates/workspace-CLAUDE.md`).
+- `./CLAUDE.md` exists AND carries the workspace marker — **either** `AI Forging workspace` or `AI Forging forge workspace`. Both are in the wild; the short one is not a substring of the long one, so match with a regex that accepts both.
 - `./docs/features/` exists as a directory.
 - `./.claude/settings.json` exists and contains an `enabledPlugins` key.
 
-**Grep the whole `CLAUDE.md`, never a `head -c` window.** Workspace `CLAUDE.md` files are meant to be customized, and a user who adds a paragraph above the marker pushes it out of any fixed byte window — the check then reports a genuine workspace as not-a-workspace. This is not hypothetical; a 500-byte window did exactly that on the first real-world `/aiforging:update-targets` run.
+**Grep the whole `CLAUDE.md`, and accept both markers.** Two things go wrong here and they look identical from the outside — a real workspace reported as not-a-workspace. One is a byte window truncating the search; the other is matching only the newer marker phrase when the workspace carries the older one. Both have happened on real repos.
 
 ```bash
-test -f ./CLAUDE.md && grep -q "AI Forging workspace" ./CLAUDE.md && echo "MARKER_OK" || echo "NO_MARKER"
+test -f ./CLAUDE.md && grep -qE "AI Forging( forge)? workspace" ./CLAUDE.md && echo "MARKER_OK" || echo "NO_MARKER"
 ```
 
 If all three hold, use the current directory as the workspace root. Proceed to Step 2.

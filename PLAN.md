@@ -778,9 +778,25 @@ Adversarial reading and mechanical coverage checks find internal incoherence. On
 - The 0.3.1 fixes themselves are unrun. The next `update-targets` execution is also their first test — including whether the version stamp actually makes the customized-vs-plugin-changed distinction cleanly on a workspace that now has one.
 - Decision 20 (upstream pattern promotion) deferred again.
 
+### Session 8b — 0.3.2, and a lesson about diagnosis
+
+Capturing the baseline for the *second* ServiceLine run — before running anything — turned up a regression Session 8 had introduced, plus a wrong diagnosis it had been built on.
+
+**The marker string was never in ServiceLine's `CLAUDE.md`.** The first update run reported `NO_CLAUDE_MD` and explained it as "the marker sits beyond the 500-byte head window." That explanation was plausible, matched the symptom, and was wrong. ServiceLine carries `AI Forging forge workspace`; the check looked for `AI Forging workspace`; **the short string is not a substring of the long one.** The byte window was never involved.
+
+Two markers exist in the wild because the workspace template's phrasing changed at some point and nothing reconciled the older files — the same class of drift as the `.gitignore` rule in finding 2, and again invisible because nothing enumerates what real workspaces actually contain.
+
+**And Session 8 made it worse.** The audit correctly observed that nothing in the plugin writes `AI Forging forge workspace`, so `new-feature.md`'s check for it "could never match" — and I narrowed it to the short phrase. Nothing in the *plugin* writes the long one. ServiceLine does, and its own `CLAUDE.md` tells the reader to keep that phrase intact. So a command that had been working was broken, in the name of fixing it. Every detection site now matches `AI Forging( forge)? workspace`, and detection has a second signal (`docs/features/README.md`'s marker comment) so a customized `CLAUDE.md` degrades to an offer to repair rather than an abort.
+
+**Three things worth keeping:**
+
+1. **A plausible explanation for a real symptom is not the cause.** The 500-byte fix was independently correct and shipped as if it had resolved the failure. It had not. Verify the diagnosis against the actual artifact — one `grep` on the real file would have settled it in seconds, and nobody ran it for a full release.
+2. **"Nothing in the plugin writes this" is an argument about the plugin, not about the world.** Installed workspaces are the accumulated output of every past version, not of the current one. Any check over user-installed content has to assume the plugin's own history is part of its input.
+3. **The baseline capture paid for itself twice.** Both times, the finding came from writing down what was actually on disk *before* acting — not from reading code, and not from the run itself.
+
 **Next session opening moves:**
 
-1. Re-run `/aiforging:update-targets` on ServiceLine at 0.3.1. It should write the first `VERSION`, offer the missing `.gitignore` rule, install the tier placeholders, and — the real check — never again offer to create `fe/.aiforging/patterns/`.
+1. Re-run `/aiforging:update-targets` on ServiceLine at 0.3.2 (not 0.3.1 — take the marker fix first). It should write the first `VERSION`, offer the missing `.gitignore` rule, install the tier placeholders, and — the real check — never again offer to create `fe/.aiforging/patterns/`.
 2. Then run it against a *second*, differently-shaped target. Everything learned so far comes from one repo in one scenario.
 3. Run `browser-testing` against a real feature with a real `testing.md`.
 4. Run `review-loop` for two rounds, with and without a `code-review` capability present.

@@ -35,7 +35,7 @@ An auto-fixer here is worse than no browser testing at all: it would cement the 
 
 Same resolution the other AI Forging skills use:
 
-- **Session is inside the workspace** (multi-repo, monorepo, or single-repo): `./CLAUDE.md` exists and contains the string `AI Forging workspace`, and `./docs/features/` exists as a directory. That pair is what `/aiforging:setup` Phase A writes; the same check `/aiforging:new-feature` uses. The workspace is the cwd.
+- **Session is inside the workspace** (multi-repo, monorepo, or single-repo): `./CLAUDE.md` carries the workspace marker — **either** `AI Forging workspace` or `AI Forging forge workspace`, matched as `grep -qE "AI Forging( forge)? workspace"` — and `./docs/features/` exists. Both phrasings are in the wild and the short one is not a substring of the long one. `docs/features/README.md`'s own marker comment is an acceptable second signal if `CLAUDE.md`'s is missing. The workspace is the cwd.
 - **Session is inside a target repo**: read `~/.claude/aiforging.json` for `active_workspace`, verify the path exists and passes the same check. (The pointer file is opt-in, so it may not exist.)
 - **Neither**: ask the user where the forge workspace is. Do not guess.
 

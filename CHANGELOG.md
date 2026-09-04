@@ -5,6 +5,22 @@ All notable changes to the AI Forging plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] — 2026-09-04
+
+One regression fix. **If you are on 0.3.1, take this before running `/aiforging:update-targets`.**
+
+### Fixed
+
+- **Workspace detection now accepts both marker phrasings, and 0.3.1 broke one of them.** Two markers exist in the wild: `AI Forging workspace` (written by the current workspace template) and `AI Forging forge workspace` (written by earlier onboardings — some of those `CLAUDE.md` files explicitly instruct the reader to keep that exact phrase intact). **The short string is not a substring of the long one**, so `grep -q "AI Forging workspace"` silently misses every workspace carrying the older marker.
+
+  0.3.1 narrowed `/aiforging:new-feature` to the short phrase only. That command had previously matched the long one and worked; after 0.3.1 it would report a genuine, long-running workspace as not-a-workspace and refuse to run. Every detection site now matches `grep -qE "AI Forging( forge)? workspace"`.
+
+  This also corrects the diagnosis behind one of the 0.3.1 fixes. The first `/aiforging:update-targets` run reported `NO_CLAUDE_MD` and attributed it to the 500-byte `head -c` window; the real cause was the marker mismatch. Removing the byte window was still right — a customized `CLAUDE.md` can push any marker out of a fixed window — but it was not what had failed. **A plausible explanation for a real symptom is not the same as the cause**, and building a fix on an unverified diagnosis left the actual bug in place through a release.
+
+- **Detection has a second signal now.** `docs/features/README.md` carries its own marker comment. If `CLAUDE.md`'s marker is absent but that file's is present and `.claude/settings.json` exists, the commands treat the directory as a workspace, offer to add the missing marker line, and continue instead of aborting. A workspace that has been working for months should not stop being one because of a phrasing change.
+
+- **`templates/workspace-CLAUDE.md` now opens with a durable marker comment** naming both accepted phrasings and warning against removing them, so customizing the file cannot silently strip the thing that makes it recognizable.
+
 ## [0.3.1] — 2026-09-04
 
 Six fixes from the first real-world run of `/aiforging:update-targets`.

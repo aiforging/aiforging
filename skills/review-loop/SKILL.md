@@ -24,7 +24,7 @@ Like `hammer-refactor`, this skill is a **dispatcher**: it decides what to revie
 
 ### 1. Resolve the workspace and the feature
 
-Same resolution as the other AI Forging skills: the cwd is the workspace if `./CLAUDE.md` contains the string `AI Forging workspace` and `./docs/features/` exists; otherwise read `active_workspace` from `~/.claude/aiforging.json` (opt-in, so it may not exist) and apply the same check there; otherwise ask.
+Same resolution as the other AI Forging skills: the cwd is the workspace if `./CLAUDE.md` carries the marker — `grep -qE "AI Forging( forge)? workspace"`, accepting both phrasings that exist in the wild — and `./docs/features/` exists; otherwise read `active_workspace` from `~/.claude/aiforging.json` (opt-in, so it may not exist) and apply the same check there; otherwise ask.
 
 Then identify the feature folder under `<workspace>/docs/features/` and **confirm it with the user.** Round records land there.
 

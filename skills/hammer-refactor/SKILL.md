@@ -48,12 +48,12 @@ Before anything else, locate the forge workspace and determine the current targe
 
 The target repo has `.aiforging/` at its root. The forge workspace is found by:
 1. Checking `~/.claude/aiforging.json` for `active_workspace`.
-2. If found, verify the path exists, its `CLAUDE.md` contains the string `AI Forging workspace`, and it has a `docs/features/` directory. That pair is what `/aiforging:setup` Phase A writes.
+2. If found, verify the path exists, its `CLAUDE.md` matches `grep -qE "AI Forging( forge)? workspace"` (both phrasings are in the wild; the short one is not a substring of the long one), and it has a `docs/features/` directory.
 3. If not found, ask the user: "Where is your forge workspace?"
 
 **Case B — session is running inside a monorepo / single-repo workspace.**
 
-The workspace IS the repo (or the repo root). Detect with: the repo root's `CLAUDE.md` contains `AI Forging workspace` and `docs/features/` exists. The target is either the repo root itself (single-repo) or a sub-project within it (monorepo). If the repo has sub-projects with their own `.aiforging/`, resolve which sub-project the user is working in.
+The workspace IS the repo (or the repo root). Detect with: the repo root's `CLAUDE.md` matches `AI Forging( forge)? workspace` and `docs/features/` exists. The target is either the repo root itself (single-repo) or a sub-project within it (monorepo). If the repo has sub-projects with their own `.aiforging/`, resolve which sub-project the user is working in.
 
 **Case C — session is running inside the forge workspace itself (multi-repo).**
 

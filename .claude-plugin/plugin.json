@@ -1,6 +1,6 @@
 {
   "name": "aiforging",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "AI Forging — a structured AI-assisted development framework for producing robust, maintainable codebases. Test-first with one scoped test suite per feature, pattern-driven refactoring, domain-driven architecture, and two optional post-implementation verification stages (browser testing against a human QA checklist, and a review/triage/fix loop). Installed as a set of conventions, skills, and a prescriptive setup flow.",
   "author": {
     "name": "Chris Holland",

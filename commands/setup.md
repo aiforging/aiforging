@@ -104,7 +104,15 @@ The current working directory (cwd) at invocation time tells you which phase to 
 
 **A directory is already a forge workspace if the following REQUIRED markers are present:**
 
-1. `./CLAUDE.md` exists AND contains the string `AI Forging workspace` **anywhere in the file** (the marker from the workspace template). Search the whole file — never a leading byte window. Users customize this file, and a paragraph added above the marker pushes it out of any fixed window, at which point a real workspace is reported as not-a-workspace.
+1. `./CLAUDE.md` exists AND carries the workspace marker **anywhere in the file**. Match **either** marker: `AI Forging workspace` or `AI Forging forge workspace`. Both exist in the wild — earlier onboardings wrote the longer phrase, and some of those files explicitly tell the user to keep it intact. The shorter string is **not** a substring of the longer one, so a plain `grep -q "AI Forging workspace"` misses every workspace carrying the older marker. Use a regex that accepts both, and never narrow it:
+
+```bash
+test -f ./CLAUDE.md && grep -qE "AI Forging( forge)? workspace" ./CLAUDE.md && echo "HAS_MARKER" || echo "NO_MARKER"
+```
+
+Search the whole file — never a leading byte window. Users customize `CLAUDE.md`, and a paragraph added above the marker pushes it out of any fixed window.
+
+**Second signal.** `docs/features/README.md` carries `<!-- AI Forging workspace marker: docs/features -->` since v0.3.1. If the `CLAUDE.md` marker is missing but that file has its marker and `.claude/settings.json` exists, treat the directory as a workspace and **offer to add the marker line to `CLAUDE.md`** rather than aborting. A workspace that has been working for months should not stop being one because of a phrasing change.
 2. `./docs/features/README.md` exists.
 3. `./.claude/settings.json` exists (committed, holds `enabledPlugins`).
 
@@ -115,7 +123,7 @@ The current working directory (cwd) at invocation time tells you which phase to 
 Run these checks:
 
 ```bash
-test -f ./CLAUDE.md && grep -q "AI Forging workspace" ./CLAUDE.md && echo "HAS_CLAUDE_MD" || echo "NO_CLAUDE_MD"
+test -f ./CLAUDE.md && grep -qE "AI Forging( forge)? workspace" ./CLAUDE.md && echo "HAS_CLAUDE_MD" || echo "NO_CLAUDE_MD"
 test -f ./docs/features/README.md && echo "HAS_FEATURES_README" || echo "NO_FEATURES_README"
 test -f ./.claude/settings.json && echo "HAS_SETTINGS_JSON" || echo "NO_SETTINGS_JSON"
 test -f ./.claude/settings.local.json && echo "HAS_SETTINGS_LOCAL" || echo "NO_SETTINGS_LOCAL"

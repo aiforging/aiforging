@@ -22,7 +22,7 @@ The command works from three places, mirroring the run-anywhere model of `/aifor
 
 ### Case 1 — Invoked from inside a forge workspace
 
-Detected by the workspace markers (same as `/aiforging:setup` Step 1): `./CLAUDE.md` contains "AI Forging workspace", `./docs/features/README.md` exists, `./.claude/settings.json` exists.
+Detected by the workspace markers (same as `/aiforging:setup` Step 1): `./CLAUDE.md` matches `AI Forging( forge)? workspace` (both phrasings are in the wild), `./docs/features/README.md` exists, `./.claude/settings.json` exists.
 
 Discover targets based on workspace scenario:
 

@@ -15,7 +15,7 @@ user_invocable: true
 
 ## Prerequisites
 
-- Must be run from inside an AI Forging workspace (the same directory markers that `/aiforging:setup` Phase A creates).
+- Must be run from inside an AI Forging workspace (the same directory markers that `/aiforging:setup` Phase A creates). The `CLAUDE.md` marker is matched as `AI Forging( forge)? workspace` — both phrasings exist in the wild.
 - The plugin must be loaded (either via marketplace install or `--plugin-dir`).
 
 ## Step 0 — Detect workspace and discover targets
@@ -23,7 +23,7 @@ user_invocable: true
 Run the same workspace detection as `/aiforging:setup` Step 1:
 
 ```bash
-test -f ./CLAUDE.md && grep -q "AI Forging workspace" ./CLAUDE.md && echo "HAS_CLAUDE_MD" || echo "NO_CLAUDE_MD"
+test -f ./CLAUDE.md && grep -qE "AI Forging( forge)? workspace" ./CLAUDE.md && echo "HAS_CLAUDE_MD" || echo "NO_CLAUDE_MD"
 test -f ./docs/features/README.md && echo "HAS_FEATURES_README" || echo "NO_FEATURES_README"
 test -f ./.claude/settings.json && echo "HAS_SETTINGS_JSON" || echo "NO_SETTINGS_JSON"
 test -f ./.claude/settings.local.json && echo "HAS_SETTINGS_LOCAL" || echo "NO_SETTINGS_LOCAL"
@@ -31,7 +31,9 @@ test -f ./.claude/settings.local.json && echo "HAS_SETTINGS_LOCAL" || echo "NO_S
 
 > **Grep the whole file, never a `head -c` window.** Workspace `CLAUDE.md` files are meant to be customized — `/aiforging:update-targets` itself treats them as "commonly customized" — and a user who adds a paragraph above the marker pushes it out of any fixed byte window. A truncated check reports a genuine workspace as not-a-workspace and aborts. This happened on the first real-world run of `/aiforging:update-targets` (ServiceLine, v0.3.0). The file is small and read once; there is nothing to optimize here.
 
-If the required markers aren't present, abort:
+**Before aborting, check the second signal.** `docs/features/README.md` carries `<!-- AI Forging workspace marker: docs/features -->`. If that file has its marker and `.claude/settings.json` exists but `CLAUDE.md`'s marker is missing, this is a real workspace whose `CLAUDE.md` was customized or predates the marker. Say so, **offer to add the marker line**, and continue — do not abort. A workspace that has been working for months should not stop being one because of a phrasing change.
+
+If neither signal is present, abort:
 
 > "This doesn't look like an AI Forging workspace. Run `/aiforging:setup` first to bootstrap one."
 

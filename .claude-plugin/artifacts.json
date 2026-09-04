@@ -13,7 +13,7 @@
     "Anything NOT listed here is never copied, diffed, or overwritten by any command."
   ],
   "schema": 1,
-  "plugin_version": "0.3.1",
+  "plugin_version": "0.3.2",
   "$scopes": {
     "workspace": "The forge workspace root — separate directory (multi-repo), or the repo root (monorepo / single-repo).",
     "target": "An onboarded target repo root, as reported by detect-project.py (the service-wrapper directory when app_subdir is set)."

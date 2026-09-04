@@ -352,9 +352,11 @@ Two of the framework's rules exist specifically to keep those gates real rather 
 
 ## Status
 
-**v0.3.1 — open source, MIT licensed.** The plugin structure, conventions library, two-phase `/aiforging:setup`, and five skills (`architecture-analyzer`, `hammer-refactor`, `capture-pattern`, `browser-testing`, `review-loop`) are in place and have been dogfooded against real production codebases by the author and by external testers. Symfony / PHP / Doctrine is the happy path; other stacks work to the extent that the conventions apply — which is substantial, but mileage will vary until dedicated adapters ship.
+**v0.3.2 — open source, MIT licensed.** The plugin structure, conventions library, two-phase `/aiforging:setup`, and five skills (`architecture-analyzer`, `hammer-refactor`, `capture-pattern`, `browser-testing`, `review-loop`) are in place and have been dogfooded against real production codebases by the author and by external testers. Symfony / PHP / Doctrine is the happy path; other stacks work to the extent that the conventions apply — which is substantial, but mileage will vary until dedicated adapters ship.
 
 ### What's new
+
+**v0.3.2** — fixes a workspace-detection regression introduced in 0.3.1: two marker phrasings exist in the wild and 0.3.1 matched only the newer one, so `/aiforging:new-feature` would refuse to run in workspaces onboarded earlier. Take this before upgrading targets.
 
 **v0.3.1** — six fixes from the first real-world run of `/aiforging:update-targets` against a production monorepo. The upgrade path passed every correctness check and surfaced six defects the pre-release audit could not have found, because each was a claim about the outside world rather than about the repo itself. Highlights: the workspace marker check no longer fails on a customized `CLAUDE.md`; `/aiforging:setup` can no longer clobber an existing `.gitignore`; pattern tiers survive git; and `.aiforging/VERSION` now records which release your copies came from. See `CHANGELOG.md`.
 
