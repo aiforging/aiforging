@@ -71,9 +71,11 @@ If the user invoked this skill in a targeted mode ("refactor this file"), skip t
 
 The pattern library has two tiers. Merge them into a single set for this run:
 
-**Target-local tier** — glob `<target>/.aiforging/patterns/*.md` and `<target>/.aiforging/anti-patterns/*.md`. These apply unconditionally to this target (no frontmatter filtering).
+**Exclude `README.md` from every glob in this step.** Each tier directory carries one as a placeholder — git cannot track an empty directory, so without it the tier vanishes on the next clone. It is documentation about the tier, not a pattern, and dispatching a subagent against it would produce a confident refactor justified by nothing.
 
-**Shared tier** — glob `<workspace>/.aiforging/patterns/*.md` and `<workspace>/.aiforging/anti-patterns/*.md`. For each file, read its YAML frontmatter `applies-to` list. Include the file only if `applies-to` contains at least one of the target's detected stack identifiers OR contains `all`. Skip files whose `applies-to` doesn't match (e.g., a `react`-only pattern when running against a Symfony backend).
+**Target-local tier** — glob `<target>/.aiforging/patterns/*.md` and `<target>/.aiforging/anti-patterns/*.md`, minus `README.md`. These apply unconditionally to this target (no frontmatter filtering).
+
+**Shared tier** — glob `<workspace>/.aiforging/patterns/*.md` and `<workspace>/.aiforging/anti-patterns/*.md`, minus `README.md`. For each file, read its YAML frontmatter `applies-to` list. Include the file only if `applies-to` contains at least one of the target's detected stack identifiers OR contains `all`. Skip files whose `applies-to` doesn't match (e.g., a `react`-only pattern when running against a Symfony backend).
 
 **Deduplication** — if a shared-tier file and a target-local file have the same filename, the target-local copy wins. This lets a target override a shared pattern with a repo-specific version.
 

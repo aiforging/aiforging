@@ -115,7 +115,7 @@ One per repo, in parallel — reviews are read-only and cannot collide. Each age
 In priority order, all of it already present in an onboarded AI Forging target:
 
 1. **Correctness against the feature's `spec.md`** — does the diff do what was agreed?
-2. **The target's `.aiforging/anti-patterns/` and `.aiforging/patterns/`** — both tiers, merged and stack-filtered the same way `hammer-refactor` merges them. A finding that names a pattern file is a finding a fix agent can act on precisely.
+2. **The target's `.aiforging/anti-patterns/` and `.aiforging/patterns/`** — both tiers, merged and stack-filtered the same way `hammer-refactor` merges them, **excluding `README.md` in each directory.** That file is a placeholder keeping the tier alive (git cannot track an empty directory) and is documentation about the tier, not a pattern. State this exclusion in the review agent's prompt rather than assuming it: the agent is dispatched with these instructions, not with `hammer-refactor`'s, and a fresh-context agent handed a tier directory will otherwise read the placeholder and can emit a finding citing it. A finding that names a real pattern file is one a fix agent can act on precisely; a finding that names the README is noise the triage step then has to reject.
 3. **The target's `.aiforging/architecture/` conventions and root `CLAUDE.md`** — placement, naming, layering.
 4. **The usual defect classes** — error handling, boundary conditions, auth and tenancy, N+1 queries and other data-access costs, concurrency, missing or vacuous tests.
 

@@ -746,3 +746,42 @@ Driven from the CertainPath project-hub-plus orchestrator, which had grown three
 3. **Run `review-loop` for two rounds** on a real feature branch, with and without a `code-review` capability present, to exercise both the primary path and the fallback rubric.
 4. **Watch whether the scoped-suite rule actually holds** across a full feature. The rule is stated in four places precisely because agents override it; if an agent still runs the full suite, find out which of the four copies it read and which it ignored.
 5. Then reconsider Decision 20.
+
+### Session 8 — 2026-09-04 (v0.3.1 — six fixes from the first real update run)
+
+`/aiforging:update-targets` was executed against a real target for the first time: ServiceLine, Scenario B (Symfony backend at the root + React `fe/`), onboarded at v0.1.0, carrying 10 user-captured patterns and 7 locally-customized convention files. Baseline captured first as md5s of 28 plugin-managed files; results verified mechanically against it rather than against the run's own account of itself. Artifacts in `OneDrive-CertainPath/ai-forging/releases/v0.3.0/` (BEFORE, AFTER, FINDINGS).
+
+**It passed.** 22 unchanged, 6 changed, 0 missing, zero protected files touched. Both drift markers closed. The three-way merge on `primitive-obsession.md` preserved a hand-added cross-reference while taking the plugin's rewritten step 6 — `diff` against the plugin source reports exactly one line.
+
+**And it surfaced six defects, all now fixed (see CHANGELOG 0.3.1).** Two bugs, two design gaps, two polish items. Ranked by what they teach:
+
+1. **`cat > ./.gitignore` in setup could destroy a user's file.** Found while fixing something else. Safe in Scenario A (new directory), destructive in B and C where the workspace *is* an existing repo. Now append-only, whole-line fixed-string matched, idempotent — tested against three cases (absent, ServiceLine-like, re-run).
+2. **`.gitignore` was not in the manifest**, so a correct `*.bak-*` rule the plugin had carried for releases never reached a workspace onboarded earlier. Seven backups landed tracked-eligible. **The manifest reproduced the exact failure mode it was built to eliminate** — and it did so one day after being built, by the person who built it, while holding the rule "if it gets copied, it goes in the manifest first." The rule was right; the category was too narrow. `.gitignore` is a *line-oriented file the plugin does not own*, which is a third kind of artifact beyond "copied" and "generated," and it needed its own policy (`append-missing-lines`).
+3. **The 500-byte marker window** reported a genuine workspace as not-a-workspace, because `CLAUDE.md` had been customized — which the framework encourages and `update-targets` explicitly expects. A premature optimization on a file read once.
+4. **`create-if-missing` on empty tier directories is a promise git will not keep.** `fe/.aiforging/patterns/` had never held a tracked file in the repo's entire history. The offer would have recurred forever, for every teammate, on every run. Fixed with a `README.md` placeholder per tier — which required auditing every pattern-library glob, including uninstall's, where a placeholder with no `seeded: true` frontmatter would have been misclassified as a user capture.
+5. **Provenance had to be reconstructed**, because Decision 27 shipped without a version stamp. 13 files showed as modified; most were customizations of files 0.3.0 never touched. Separating them took several extra passes and worked because the run was careful. **Reversed that call:** `.aiforging/VERSION` is now written at install and after every successful update, with an honest inference fallback for workspaces predating it.
+6. **The upgrade-time offer read like a changelog entry.** `setup` carried the real pitch; `update-targets` carried a compression of it. The asymmetry was backwards — at upgrade time the user is being interrupted about something they have never heard of, so the explanation has to work *harder* there, not less. **The spec was the weak link, not the execution:** the command did exactly what "present these as offers with a one-line explanation" asked for.
+
+**What this says about the two review instruments.** The v0.3.0 audit found nine defects and was worth every token. Not one of these six was reachable by it, because every finding it produced was a claim the repo made about *itself* — a contradiction between two files, a manifest omission, mirror drift — while every one of these is a claim about the world outside the repo. Findings 2 and 3 had been latent for two releases and were reachable only by someone who had actually upgraded, which nobody ever had.
+
+Adversarial reading and mechanical coverage checks find internal incoherence. Only execution finds a false belief about the environment. **Both, before a release — and "both" now has to include at least one real run, not just a synthetic one.** ServiceLine's *asymmetric* pattern tier (anti-patterns populated, patterns not) is what exposed finding 4; a workspace with both tiers empty or both full would have hidden it. A synthetic fixture would have had neither.
+
+**Standing lesson, now written into the framework:** instructions that have never been executed are not documentation, they are a hypothesis.
+
+**The fixes were themselves audited twice, and the second pass mattered.** Round one verified the six fixes and found seven more problems — including three the fixes had *created*: `capture-pattern` never got the `README.md` glob exclusion at all (the one skill whose topic-overlap scan would surface a document about patterns first); the manifest's `user_owned` list now matched three of the plugin's own files, which a literal reading made permanently uncorrectable; and the new tier placeholder was declared for frontend targets while `setup` still skipped them. Round two confirmed four fixed and caught that `capture-pattern`'s exclusion had been added as a preamble ~90 lines above the step it governs — technically present, practically invisible to an agent reading the step. Now inline in both scans, next to the `ls` it modifies.
+
+**The generalizable bit:** a rule stated far from the code it governs is not stated. `hammer-refactor` had it right by accident — the exclusion sits inside the glob step and is repeated at each of the three globs. That is the shape to copy, and it is the same principle as repeating the scoped-suite rule in every subagent prompt (Decision 24). Proximity beats elegance whenever a fresh context is going to read only one section.
+
+**Not done this session:**
+
+- `browser-testing` and `review-loop` are installed in ServiceLine but still have never been run against a real feature. That remains the largest untested surface in the plugin, and it is now larger than the upgrade path was.
+- The 0.3.1 fixes themselves are unrun. The next `update-targets` execution is also their first test — including whether the version stamp actually makes the customized-vs-plugin-changed distinction cleanly on a workspace that now has one.
+- Decision 20 (upstream pattern promotion) deferred again.
+
+**Next session opening moves:**
+
+1. Re-run `/aiforging:update-targets` on ServiceLine at 0.3.1. It should write the first `VERSION`, offer the missing `.gitignore` rule, install the tier placeholders, and — the real check — never again offer to create `fe/.aiforging/patterns/`.
+2. Then run it against a *second*, differently-shaped target. Everything learned so far comes from one repo in one scenario.
+3. Run `browser-testing` against a real feature with a real `testing.md`.
+4. Run `review-loop` for two rounds, with and without a `code-review` capability present.
+5. Then reconsider Decision 20.

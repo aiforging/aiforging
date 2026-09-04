@@ -5,6 +5,9 @@ description: Use when the user corrects your code, rejects a diff, asks you to c
 
 # Capture Pattern — the Tempering feedback loop
 
+
+**Exclude `README.md` from every tier listing in this skill.** Each tier directory carries one as a placeholder — git cannot track an empty directory, so without it the tier vanishes on the next clone. It is documentation *about* patterns, which makes it exactly the file a topic-overlap check surfaces first. Reading it as a candidate leads to offering to extend the placeholder instead of writing a new pattern, or cross-linking a real pattern to it.
+
 ## Overview
 
 When a human corrects your work during an interactive session, the correction often encodes a reusable rule. This skill detects those moments and offers to persist the lesson as a pattern or anti-pattern in the AI Forging library — specifically in `<target>/.aiforging/patterns/` or `<target>/.aiforging/anti-patterns/` — so that every subsequent `hammer-refactor` run against that target checks new code against the new rule.
@@ -65,7 +68,7 @@ The cwd is the target. The forge workspace is found by checking `~/.claude/aifor
 Detect with:
 
 ```bash
-test -f ./docs/features/README.md && head -c 500 ./docs/features/README.md | grep -q "Feature Folder Convention" && echo "IN_REPO_WORKSPACE"
+test -f ./docs/features/README.md && grep -q "Feature Folder Convention" ./docs/features/README.md && echo "IN_REPO_WORKSPACE"
 ```
 
 The workspace IS the repo root. If the repo has sub-projects with their own `.aiforging/`, determine which sub-project the correction applies to (from the file being discussed in the session). The shared tier is `<repo-root>/.aiforging/patterns/` or `.aiforging/anti-patterns/`. The target-local tier is `<sub-project>/.aiforging/patterns/` or `.aiforging/anti-patterns/`.
@@ -75,7 +78,7 @@ The workspace IS the repo root. If the repo has sub-projects with their own `.ai
 Detect with:
 
 ```bash
-test -f ./CLAUDE.md && head -c 500 ./CLAUDE.md | grep -q "AI Forging workspace" && \
+test -f ./CLAUDE.md && grep -q "AI Forging workspace" ./CLAUDE.md && \
   test -f ./.claude/settings.local.json && echo "IN_FORGE_WORKSPACE"
 ```
 
@@ -98,14 +101,16 @@ Tell the human: "I can only capture patterns from inside a target repo or an AI 
 Before drafting anything, scan BOTH the shared tier and the target-local tier for existing patterns:
 
 ```bash
-# Shared tier (workspace level)
-ls <workspace>/.aiforging/patterns/ 2>/dev/null
-ls <workspace>/.aiforging/anti-patterns/ 2>/dev/null
+# Shared tier (workspace level) — README.md is the tier placeholder, not a pattern
+ls <workspace>/.aiforging/patterns/      2>/dev/null | grep -v '^README\.md$'
+ls <workspace>/.aiforging/anti-patterns/ 2>/dev/null | grep -v '^README\.md$'
 
 # Target-local tier
-ls <target>/.aiforging/patterns/ 2>/dev/null
-ls <target>/.aiforging/anti-patterns/ 2>/dev/null
+ls <target>/.aiforging/patterns/         2>/dev/null | grep -v '^README\.md$'
+ls <target>/.aiforging/anti-patterns/    2>/dev/null | grep -v '^README\.md$'
 ```
+
+**Skip `README.md` in every tier directory.** It is the placeholder that keeps the tier alive in git, and its body is *about* patterns and anti-patterns — which makes it precisely the file a topic-overlap check surfaces first. Treating it as a candidate leads to offering to extend the placeholder instead of writing a new pattern.
 
 Read any file whose name or topic might overlap. If an existing file covers the same ground (in either tier):
 
@@ -115,7 +120,7 @@ Read any file whose name or topic might overlap. If an existing file covers the 
 
 ### Step 4 — Draft the file in AI Forging format
 
-Use the AI Forging pattern format (documented in `<target>/.aiforging/patterns/README.md` if it was seeded during onboarding, or in the plugin source at `conventions/refactoring/README.md`). This is a simpler format than some other projects use — no `Category:` header, no `Safe to auto-refactor:` flag, just the six sections below.
+Use the AI Forging pattern format, documented in the pattern-library README at `<workspace>/.aiforging/README.md` (or in the plugin source at `conventions/refactoring/README.md`). Note this is *not* `<tier>/patterns/README.md` — that file is the tier placeholder and describes which tier you are in, not the file format. This is a simpler format than some other projects use — no `Category:` header, no `Safe to auto-refactor:` flag, just the six sections below.
 
 **For a pattern:**
 
@@ -299,6 +304,8 @@ After writing, check if a related file exists on the opposite side:
 
 - **New pattern?** Scan `<target>/.aiforging/anti-patterns/` for the anti-pattern that motivates this pattern. If found, offer to add a cross-reference from the existing anti-pattern's `## Related` section to the new pattern file.
 - **New anti-pattern?** Scan `<target>/.aiforging/patterns/` for the pattern that fixes this smell. If found, offer to add a cross-reference in the other direction.
+
+**Skip `README.md` in both scans** — same reason as Step 3. It is the tier placeholder, not a pattern, and cross-linking a real pattern to it produces a dead reference.
 
 Show the human the proposed cross-reference update before applying it. Never edit the existing file silently.
 

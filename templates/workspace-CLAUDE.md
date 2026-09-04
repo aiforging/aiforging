@@ -35,7 +35,7 @@ The pattern library has two tiers that `hammer-refactor` merges on every run:
 
 **Shared tier** — lives in THIS workspace at `.aiforging/patterns/` and `.aiforging/anti-patterns/`. Shared patterns have YAML frontmatter with an `applies-to` list of stack identifiers (e.g., `symfony-php`, `react`, `doctrine`, or `all`). When `hammer-refactor` runs against a target, it reads the shared tier and includes only patterns whose `applies-to` matches the target's detected stack. Seeded patterns (shipped with the plugin) live here.
 
-**Target-local tier** — lives in each target repo's own `.aiforging/patterns/` and `.aiforging/anti-patterns/`. Target-local patterns have no `applies-to` frontmatter and apply unconditionally to that target. Use this tier for repo-specific rules. These directories start empty on onboarding.
+**Target-local tier** — lives in each target repo's own `.aiforging/patterns/` and `.aiforging/anti-patterns/`. Target-local patterns have no `applies-to` frontmatter and apply unconditionally to that target. Use this tier for repo-specific rules. Each tier directory ships with a `README.md` explaining which tier you are in and what belongs there — it also keeps the directory alive, since git will not track an empty one. Every pattern-library glob excludes it.
 
 If both tiers contain a file with the same name, the target-local copy wins (allows per-target overrides).
 
@@ -45,7 +45,7 @@ The repos this workspace is onboarded to are listed in `.claude/settings.local.j
 
 - `ANALYSIS.md` — snapshot from `architecture-analyzer` (regenerated on rerun).
 - `architecture/`, `tdd/`, `subagent-orchestration/` — AI Forging conventions copied in during onboarding.
-- `patterns/` and `anti-patterns/` — the target-local tier of the pattern library (starts empty; repo-specific captures go here).
+- `patterns/` and `anti-patterns/` — the target-local tier of the pattern library (holds repo-specific captures; ships with a tier README that every glob excludes).
 
 Additionally, candidate target repos have two AI Forging skills committed at `.claude/skills/` so that anyone cloning the target repo can use them independently of whether the aiforging plugin is installed on their machine:
 

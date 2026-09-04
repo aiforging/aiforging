@@ -53,7 +53,7 @@ claude plugin list      # note the version, the marketplace, and the scope
 **Then check these, in this order.** The first three are correctness; the rest are whether it is pleasant to use.
 
 1. **Nothing under `docs/features/` changed.** Not a spec, not a plan, not a `testing.md`, not an `ai-testing/` or `ai-reviews/` record. The one permitted exception is `docs/features/README.md`, which is the installed convention. `git status` in the workspace is the check, and any other change here is a serious bug — report it immediately.
-2. **User-captured patterns survived.** Every `.md` in a `patterns/` or `anti-patterns/` directory *without* `seeded: true` frontmatter must be byte-identical afterwards, in both tiers.
+2. **User-captured patterns survived.** Every `.md` in a `patterns/` or `anti-patterns/` directory *without* `seeded: true` frontmatter must be byte-identical afterwards, in both tiers — **except `README.md`**, which is the plugin's tier placeholder, has no frontmatter by design, and may legitimately be added or updated. Match that one by filename, not by the frontmatter test.
 3. **`.aiforging/ANALYSIS.md` was not touched** in any target. It describes your codebase, not the plugin.
 4. **New artifacts arrived as offers, not surprises.** Anything added since your installed version should have been presented with a line saying what it does, and you should have been able to decline it. If something appeared without being offered, say so.
 5. **Previously-declined optional artifacts stayed declined.** If you said no to the Playwright conventions at onboarding, they should not have reappeared.

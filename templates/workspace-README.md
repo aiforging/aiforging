@@ -22,8 +22,12 @@ This directory is an **AI Forging workspace** — a central orchestration hub fo
 │       └── review-loop/                   # optional — rounds of review, triage, fix
 │           └── SKILL.md
 ├── .aiforging/
+│   ├── README.md                          # the pattern file format + two-tier model
+│   ├── VERSION                            # which plugin release these copies came from
 │   ├── patterns/                          # SHARED TIER — applies-to frontmatter, stack-filtered
-│   └── anti-patterns/                     # SHARED TIER — seeded patterns live here
+│   │   └── README.md                      #   tier placeholder; excluded from every glob
+│   └── anti-patterns/                     # SHARED TIER — seeded anti-patterns live here
+│       └── README.md                      #   tier placeholder; excluded from every glob
 └── docs/
     └── features/
         ├── README.md                      # The feature-folder convention (read first)

@@ -94,6 +94,8 @@ These are copies of plugin content, regenerable by re-running `/aiforging:setup`
 - `<target>/.aiforging/frontend-testing/` — entire directory (if present)
 - `<target>/.aiforging/CLAUDE.md` — per-repo pointer file
 - `<target>/.aiforging/ANALYSIS.md` — analyzer output (regenerable)
+- `<target>/.aiforging/VERSION` — plugin version stamp
+- `<target>/.aiforging/patterns/README.md` and `anti-patterns/README.md` — **tier placeholders, plugin-sourced.** They have no `seeded: true` frontmatter, so the seeded-vs-user-captured test would misclassify them as the user's work and keep them. Match them by filename instead: `README.md` inside a tier directory is always the plugin's placeholder, never a captured pattern. Remove the directory itself only if nothing else remains in it.
 - `<target>/.aiforging/README.md` — refactoring docs (plugin copy)
 - `<target>/.claude/skills/hammer-refactor/SKILL.md` — skill copy
 - `<target>/.claude/skills/capture-pattern/SKILL.md` — skill copy
@@ -108,8 +110,8 @@ These are copies of plugin content, regenerable by re-running `/aiforging:setup`
 
 ### Category B — User-created (never remove)
 
-- `<target>/.aiforging/patterns/*.md` where `seeded: true` is NOT present — user-captured patterns
-- `<target>/.aiforging/anti-patterns/*.md` where `seeded: true` is NOT present — user-captured anti-patterns
+- `<target>/.aiforging/patterns/*.md` where `seeded: true` is NOT present, **excluding `README.md`** — user-captured patterns
+- `<target>/.aiforging/anti-patterns/*.md` where `seeded: true` is NOT present, **excluding `README.md`** — user-captured anti-patterns
 
 ### Category C — Settings entries (remove entries, not files)
 
@@ -126,6 +128,9 @@ Target: /abs/path/to/backend
     .aiforging/subagent-orchestration/    (1 file)
     .aiforging/CLAUDE.md                  (pointer)
     .aiforging/ANALYSIS.md                (analyzer output — regenerable)
+    .aiforging/VERSION                    (plugin version stamp)
+    .aiforging/patterns/README.md         (tier placeholder)
+    .aiforging/anti-patterns/README.md    (tier placeholder)
     .claude/skills/hammer-refactor/       (skill copy)
     .claude/skills/capture-pattern/       (skill copy)
 
@@ -153,6 +158,8 @@ Target: /abs/path/to/backend
 
 ### Category A — Plugin-sourced (safe to remove)
 
+- `./.aiforging/VERSION` — plugin version stamp
+- `./.aiforging/patterns/README.md` and `./.aiforging/anti-patterns/README.md` — tier placeholders (see the note above: match by filename, not by frontmatter)
 - `./.claude/skills/capture-pattern/SKILL.md` — workspace skill copy
 - `./.claude/skills/browser-testing/SKILL.md` — workspace skill copy (if installed)
 - `./.claude/skills/review-loop/SKILL.md` — workspace skill copy (if installed)
@@ -164,8 +171,8 @@ Target: /abs/path/to/backend
 ### Category B — User-created (never remove)
 
 - `./docs/features/` — entire directory tree. Specs, plans, `testing.md` QA checklists, `notes.md`, `summary.md`, and the `ai-testing/` and `ai-reviews/` run records. All of it. **This is the user's intellectual work, and the run records are evidence of what was tested and decided.**
-- `./.aiforging/patterns/*.md` where `seeded: true` is NOT present — user-captured shared patterns
-- `./.aiforging/anti-patterns/*.md` where `seeded: true` is NOT present — user-captured shared anti-patterns
+- `./.aiforging/patterns/*.md` where `seeded: true` is NOT present, **excluding `README.md`** — user-captured shared patterns
+- `./.aiforging/anti-patterns/*.md` where `seeded: true` is NOT present, **excluding `README.md`** — user-captured shared anti-patterns
 
 ### Category C — Settings entries (remove entries, not files)
 
@@ -323,6 +330,12 @@ Valid — clean up workspace artifacts only.
 ### Empty `.aiforging/` after cleanup
 
 If all seeded patterns are removed and no user-captured patterns exist, the `.aiforging/` directory at the workspace or target level will be empty. Remove it. But if ANY user-captured pattern remains, leave the directory structure intact.
+
+### The workspace `.gitignore`
+
+`/aiforging:setup` **appends** rules to the workspace `.gitignore` rather than owning the file — in monorepo and single-repo scenarios it belongs to the user's repo and may be hundreds of lines long. Uninstall does **not** remove those lines. Removing `*.bak-*` or `.DS_Store` from someone's `.gitignore` is far more likely to be unwanted than leaving four harmless lines behind. Mention them in the summary and let the user decide:
+
+> Four lines were appended to `.gitignore` at onboarding (`.claude/settings.local.json`, `*.bak-*`, `.DS_Store`, `Thumbs.db`). They're left in place — they're harmless, and removing rules from a file you own is riskier than keeping them.
 
 ### Other plugins sharing `.claude/skills/`
 

@@ -57,7 +57,7 @@ AI Forging deliberately separates three locations with different lifecycles:
 
 1. **The plugin itself** — installed once per machine from a marketplace. Holds the conventions library, skills, helper scripts, and the `/aiforging:setup` command. You never clone or edit this.
 2. **Your forge workspace** — the directory from which you orchestrate feature work. Bootstrapped by `/aiforging:setup` Phase A. Holds your central `docs/features/<name>/spec.md` + `plan.md` files, a committed `.claude/settings.json` with `enabledPlugins`, and the **shared-tier pattern library** (`.aiforging/patterns/` and `.aiforging/anti-patterns/` with `applies-to` frontmatter for stack filtering). Also installs the workspace-level `capture-pattern` skill for feedback loops that span repos. Designed to accumulate feature history as a git repository over time.
-3. **Your target repos** — the codebases being forged. Each is onboarded to a forge workspace via `/aiforging:setup` Phase B. Gets a committed `.aiforging/` (conventions library + empty **target-local pattern directories** + `ANALYSIS.md` snapshot + per-repo `CLAUDE.md` pointer) and, for backend/fullstack repos, committed `.claude/skills/hammer-refactor/` and `.claude/skills/capture-pattern/` so any teammate who clones the repo gets the full toolkit without having to install the aiforging plugin on their machine.
+3. **Your target repos** — the codebases being forged. Each is onboarded to a forge workspace via `/aiforging:setup` Phase B. Gets a committed `.aiforging/` (conventions library + **target-local pattern directories** + `ANALYSIS.md` snapshot + per-repo `CLAUDE.md` pointer) and, for backend/fullstack repos, committed `.claude/skills/hammer-refactor/` and `.claude/skills/capture-pattern/` so any teammate who clones the repo gets the full toolkit without having to install the aiforging plugin on their machine.
 
 **Workspace as a role, not always a separate directory.** `/aiforging:setup` opens with a scenario interview that adapts to how your codebase is organized:
 
@@ -67,7 +67,7 @@ AI Forging deliberately separates three locations with different lifecycles:
 
 The split keeps the plugin shareable, each workspace personal, and each target repo self-contained.
 
-**Two-tier pattern library.** Patterns live in two places: a **shared tier** at the workspace level (applies to all targets with matching stacks, has `applies-to` YAML frontmatter) and a **target-local tier** per target repo (applies only to that repo, no frontmatter needed). The `hammer-refactor` skill merges both tiers on every run, filtering by the target's detected stack. The `capture-pattern` skill asks whether each new capture should be shared or target-local. Seeded patterns from the plugin ship in the shared tier; target-local directories start empty.
+**Two-tier pattern library.** Patterns live in two places: a **shared tier** at the workspace level (applies to all targets with matching stacks, has `applies-to` YAML frontmatter) and a **target-local tier** per target repo (applies only to that repo, no frontmatter needed). The `hammer-refactor` skill merges both tiers on every run, filtering by the target's detected stack. The `capture-pattern` skill asks whether each new capture should be shared or target-local. Seeded patterns from the plugin ship in the shared tier. A target-local directory starts with only its tier README — the placeholder that keeps it alive, since git will not track an empty directory.
 
 ## Installation
 
@@ -129,7 +129,7 @@ For multi-repo workspaces, either continue into Phase B at the end of Phase A or
 3. Writes `enabledPlugins` into the *target repo's* own `.claude/settings.json` so teammates who clone the target get `superpowers` + `aiforging` auto-activated without touching their personal config.
 4. Copies the conventions library into `<target>/.aiforging/` (architecture, tdd, subagent-orchestration) plus a per-repo `CLAUDE.md` pointer.
 5. For backend / fullstack targets, offers to install the `hammer-refactor` + `capture-pattern` skills as a bundle into `<target>/.claude/skills/` so anyone cloning the target repo can run them directly.
-6. Creates empty `<target>/.aiforging/patterns/` and `<target>/.aiforging/anti-patterns/` directories for the **target-local tier**. Seeded patterns live in the workspace's shared tier — `hammer-refactor` merges both tiers on every run.
+6. Creates `<target>/.aiforging/patterns/` and `<target>/.aiforging/anti-patterns/` for the **target-local tier**, each with a short README explaining the tier (and keeping the directory alive — git will not track an empty one). Writes `<target>/.aiforging/VERSION` so future updates can tell plugin changes from your changes. Seeded patterns live in the workspace's shared tier — `hammer-refactor` merges both tiers on every run.
 7. Runs the `architecture-analyzer` skill against the target and writes a structured `.aiforging/ANALYSIS.md` report with a score and prioritized findings.
 8. Optionally installs the Playwright-oriented frontend testing convention for frontend / fullstack targets.
 9. Optionally drafts a feature folder at `<workspace>/docs/features/<feature-name>/` with a `spec.md` and a `plan.md` (in the AI Forging slice format) based on the analyzer's findings.
@@ -186,7 +186,9 @@ aiforging/
 │   ├── workspace-CLAUDE.md
 │   ├── workspace-README.md
 │   ├── docs-features-README.md
-│   └── feature-testing.md          # testing.md skeleton, copied per feature
+│   ├── feature-testing.md          # testing.md skeleton, copied per feature
+│   ├── patterns-tier-README.md     # tier placeholder — keeps the directory alive in git
+│   └── anti-patterns-tier-README.md
 └── conventions/                    # library copied into each target repo as .aiforging/
     ├── CLAUDE.md.template          #   per-target CLAUDE.md pointer
     ├── features/                   #   feature-folder + slice-plan convention
@@ -348,9 +350,13 @@ Two of the framework's rules exist specifically to keep those gates real rather 
 
 ## Status
 
-**v0.3.0 — open source, MIT licensed.** The plugin structure, conventions library, two-phase `/aiforging:setup`, and five skills (`architecture-analyzer`, `hammer-refactor`, `capture-pattern`, `browser-testing`, `review-loop`) are in place and have been dogfooded against real production codebases by the author and by external testers. Symfony / PHP / Doctrine is the happy path; other stacks work to the extent that the conventions apply — which is substantial, but mileage will vary until dedicated adapters ship.
+**v0.3.1 — open source, MIT licensed.** The plugin structure, conventions library, two-phase `/aiforging:setup`, and five skills (`architecture-analyzer`, `hammer-refactor`, `capture-pattern`, `browser-testing`, `review-loop`) are in place and have been dogfooded against real production codebases by the author and by external testers. Symfony / PHP / Doctrine is the happy path; other stacks work to the extent that the conventions apply — which is substantial, but mileage will vary until dedicated adapters ship.
 
-### What's new in v0.3.0
+### What's new
+
+**v0.3.1** — six fixes from the first real-world run of `/aiforging:update-targets` against a production monorepo. The upgrade path passed every correctness check and surfaced six defects the pre-release audit could not have found, because each was a claim about the outside world rather than about the repo itself. Highlights: the workspace marker check no longer fails on a customized `CLAUDE.md`; `/aiforging:setup` can no longer clobber an existing `.gitignore`; pattern tiers survive git; and `.aiforging/VERSION` now records which release your copies came from. See `CHANGELOG.md`.
+
+### What was new in v0.3.0
 
 See `CHANGELOG.md` for the full entry.
 

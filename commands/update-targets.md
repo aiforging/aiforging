@@ -23,11 +23,13 @@ user_invocable: true
 Run the same workspace detection as `/aiforging:setup` Step 1:
 
 ```bash
-test -f ./CLAUDE.md && head -c 500 ./CLAUDE.md | grep -q "AI Forging workspace" && echo "HAS_CLAUDE_MD" || echo "NO_CLAUDE_MD"
+test -f ./CLAUDE.md && grep -q "AI Forging workspace" ./CLAUDE.md && echo "HAS_CLAUDE_MD" || echo "NO_CLAUDE_MD"
 test -f ./docs/features/README.md && echo "HAS_FEATURES_README" || echo "NO_FEATURES_README"
 test -f ./.claude/settings.json && echo "HAS_SETTINGS_JSON" || echo "NO_SETTINGS_JSON"
 test -f ./.claude/settings.local.json && echo "HAS_SETTINGS_LOCAL" || echo "NO_SETTINGS_LOCAL"
 ```
+
+> **Grep the whole file, never a `head -c` window.** Workspace `CLAUDE.md` files are meant to be customized — `/aiforging:update-targets` itself treats them as "commonly customized" — and a user who adds a paragraph above the marker pushes it out of any fixed byte window. A truncated check reports a genuine workspace as not-a-workspace and aborts. This happened on the first real-world run of `/aiforging:update-targets` (ServiceLine, v0.3.0). The file is small and read once; there is nothing to optimize here.
 
 If the required markers aren't present, abort:
 
@@ -66,6 +68,23 @@ Each entry gives you:
   - **`never`** — user-owned; do not read, diff, or write.
 - `since` — the plugin version the artifact first shipped in. Anything whose `since` is newer than what the user has installed is an **addition**, not an update, and should be presented as an offer with an explanation of what it does.
 
+**Read the version stamp first: `<scope-root>/.aiforging/VERSION`.** One line, the plugin version those copies correspond to. It tells you what to compare against, so you can distinguish *the plugin changed this file* from *the user changed this file* — the single most important distinction this command makes, and the one it gets wrong most expensively.
+
+With a stamp, and when the plugin is a git checkout (marketplace installs are), you can diff three ways properly:
+
+```bash
+# what the file looked like at the version the user installed
+git -C ${CLAUDE_PLUGIN_ROOT} show "v<stamped-version>:conventions/tdd/fire-red-green-refactor.md" 2>/dev/null
+```
+
+Then: **on-disk == stamped-version** means pristine, safe to update silently at default Y. **on-disk != stamped-version** means the user customized it — a three-way merge, and it needs to be shown to them.
+
+**If there is no stamp** (onboarded before 0.3.1), or the tag lookup fails, fall back to inference: compare on-disk against both the current plugin version and whatever earlier content you can recover, and **say out loud that you are inferring.** Do not present an inferred classification with the same confidence as a stamped one. Under inference, default customized-looking files to *skip*, not to *overwrite*.
+
+Write the stamp at the end of a successful run (Step 3).
+
+**An explicit `install[].dest` always wins over a `user_owned` pattern that matches the same path.** `user_owned` is a catch-all for files the manifest never names; a file the manifest gives a destination is plugin-managed by definition and its `update` policy governs. Three of the plugin's own files match a `user_owned` pattern literally — `docs/features/README.md`, `.aiforging/patterns/README.md`, `.aiforging/anti-patterns/README.md` — and without this rule a literal reading forbids ever correcting them. The manifest states the same rule under `$precedence`.
+
 Also read the manifest's `user_owned` list. **Nothing matching it is ever diffed, backed up, moved, or overwritten** — not the user's feature folders, not their `testing.md` files, not their `ai-testing/` or `ai-reviews/` run records, not their captured patterns, not their `settings.local.json`.
 
 **If an entry in the manifest names a source file that does not exist in the plugin**, stop and report it rather than skipping quietly — that is a packaging bug, and continuing would hide it.
@@ -85,7 +104,7 @@ When a file differs, show a **summary** of the change in two or three sentences 
 **`seeded-only` (the shared-tier pattern library).** For each `.md` in `./.aiforging/patterns/` and `./.aiforging/anti-patterns/`:
 
 1. Read the YAML frontmatter. `seeded: true` means it came from the plugin and is eligible for update. Match to the plugin file by filename.
-2. **No `seeded: true`, or no frontmatter at all, means the user captured it. Never touch it** — not to update, not to reformat, not to "fix" its frontmatter.
+2. **No `seeded: true`, or no frontmatter at all, means the user captured it. Never touch it** — not to update, not to reformat, not to "fix" its frontmatter. **One exception, by filename: `README.md`.** Every tier directory carries one as a placeholder (git will not keep an empty directory), it has no frontmatter by design, and it is plugin-managed — `template:patterns-tier-readme` and `template:anti-patterns-tier-readme` in the manifest. Match it by name, never by the frontmatter test.
 3. Also check for seeded files in the plugin that are **missing** from the workspace. Those are additions.
 
 **`offer-default-no` (the workspace's `CLAUDE.md` and `README.md`).** These were seeded from templates and users routinely customize them:
@@ -96,9 +115,39 @@ Default: skip.
 
 **`docs/features/README.md` is the exception, and defaults to Y.** It is a template, but unlike the other two it carries framework rules that the skills actively depend on — the `testing.md` requirement, the scoped-test-suite rule, the slice format. A workspace running a stale copy will keep planning features against rules the rest of the plugin no longer follows, and nothing will announce it. Offer it at default Y, and if the user has customized it, show the diff so they can merge deliberately.
 
-**Additions whose `since` is newer than the installed version.** Present these as offers with a one-line explanation, not as silent installs:
+**Additions whose `since` is newer than the installed version.** Present these as offers, never silent installs — and give each one the *reason* it exists, not just a description of its mechanics.
 
-> "New in v0.3.0: `browser-testing` and `review-loop` — two optional post-implementation skills. `browser-testing` walks a feature's `testing.md` in a real browser and reports what diverged without fixing anything; `review-loop` runs rounds of review, triage, and fix across every repo the feature touched. Both are workspace-level. Install them? [Y/n]"
+**This is where the explanation has to work hardest, and it is the easiest place to under-write it.** At install time the user came looking for the framework and is reading carefully. At upgrade time they came to do something else and are being interrupted by an offer for a thing they have never heard of. A one-line summary of what a skill *does* gives them nothing to decide with, so they either decline on principle or accept on trust. Neither is a real choice. Carry across the one sentence that makes the thing make sense — the same sentence `/aiforging:setup` uses when it offers the artifact for the first time.
+
+Compare. Mechanics only, which is not enough:
+
+> "`browser-testing` walks a feature's `testing.md` in a browser and reports divergences without fixing. `review-loop` runs review/triage/fix rounds across repos. Both optional. Install? [Y/n]"
+
+With the reason, which is:
+
+> **New in v0.3.0 — two optional stages that run after a feature is built.** Neither writes a feature, and neither runs unless you invoke it.
+>
+> **`browser-testing`** walks a feature's `testing.md` QA checklist in a real browser, marking the items only a human can judge so you can work those in parallel. **It fixes nothing, by design:** a failing step means the product and the spec disagree, and deciding which one is wrong needs a person — an auto-fixer would cement the wrong answer *and* hand you a green checklist saying so.
+>
+> **`review-loop`** runs rounds of review, triage and fix across every repo a feature touched. The triage step is the point: roughly a third of review findings describe deliberate behavior, so each one is verified against the source before it is accepted.
+>
+> Install them? [Y/n]
+
+### Check the `.gitignore` rules
+
+The manifest's `config:gitignore` entry lists the lines the framework needs. Check each with a **whole-line fixed-string** match:
+
+```bash
+for rule in '.claude/settings.local.json' '*.bak-*' '.DS_Store' 'Thumbs.db'; do
+  grep -qxF "$rule" ./.gitignore 2>/dev/null || echo "MISSING: $rule"
+done
+```
+
+**A near-miss does not count.** `.claude/*.bak-*` is not `*.bak-*` — it matches neither nested paths like `.claude/skills/hammer-refactor/SKILL.md.bak-*` nor the backups this command writes into `.aiforging/` and `docs/`. That exact near-miss left seven backups tracked-eligible on the first real update run.
+
+Offer to append only what is missing, and **never rewrite the file** — in Scenarios B and C it belongs to the user's repo and may be hundreds of lines long:
+
+> Your `.gitignore` is missing `*.bak-*`, so the backups this command is about to write would show up as untracked files in `git status` and could be committed by accident. Append it? (Nothing else in the file is touched.) [Y/n]
 
 ### Workspace diff summary
 
@@ -124,6 +173,10 @@ Apply workspace updates? [Y/n / pick by number]
 
 Default: Y (apply all). The user can pick individual items by number.
 
+**Derive every count in this summary from the same enumeration you used to classify, and never restate a number from memory.** If you say "11 user-captured patterns are protected," that number must come from `len()` of the list you actually built. Where the set is small enough to name — under about a dozen — **list it instead of counting it**; a name the user recognizes is verifiable, a count is not.
+
+This matters more than it looks: the numbers that appear in this summary are almost always describing *what is protected from modification*, which is the worst available place to be approximately right. It is the figure a user checks before granting permission to proceed. A first real-world run reported "10 features" and "11 user-captured patterns" where the truth was 9 and 10, then self-corrected in the final summary — harmless that time, and exactly the shape of a mistake that would not be harmless.
+
 **Before applying any overwrite**, create a timestamped backup:
 
 ```bash
@@ -134,7 +187,7 @@ The workspace `.gitignore` already covers `*.bak-*`.
 
 ## Step 2 — Diff target-level artifacts (per target)
 
-For each target discovered in Step 0, walk every manifest entry that has an `install` record with `scope: "target"` **and** whose `roles` include this target's detected role. A `backend` target gets the architecture / tdd / subagent-orchestration conventions and the skills bundle; a `frontend` target gets none of those, and only the Playwright layer if it opted in. Group every target into a single report.
+For each target discovered in Step 0, walk every manifest entry that has an `install` record with `scope: "target"` **and** whose `roles` include this target's detected role. A `backend` target gets the architecture / tdd / subagent-orchestration conventions and the skills bundle. A `frontend` target gets none of those — only the Playwright layer, if it opted in — **but it still gets the version stamp and the two tier directories with their placeholders**, because a frontend target with an `.aiforging/` counts as onboarded, can be asked to capture a frontend-scoped pattern, and needs recorded provenance like any other. Check the manifest's `roles` per artifact rather than assuming 'frontend means nothing applies'. Group every target into a single report.
 
 ### Rules that apply to every target artifact
 
@@ -147,7 +200,15 @@ For each target discovered in Step 0, walk every manifest entry that has an `ins
 
    ```bash
    mkdir -p <target>/.aiforging/patterns <target>/.aiforging/anti-patterns
+   cp ${CLAUDE_PLUGIN_ROOT}/templates/patterns-tier-README.md      <target>/.aiforging/patterns/README.md
+   cp ${CLAUDE_PLUGIN_ROOT}/templates/anti-patterns-tier-README.md <target>/.aiforging/anti-patterns/README.md
    ```
+
+   **Install the placeholder even when the directory already exists.** The common upgrade case is a tier that is present but has no `README.md` — every workspace onboarded before 0.3.1. Treat a missing `<tier>/README.md` as an ordinary manifest addition (`since: 0.3.1`), offered like any other, not as something that only happens when the whole directory is absent.
+
+   **The `README.md` is not decoration — it is what makes the directory survive.** Git cannot track an empty directory, so a tier created empty vanishes on the next clone or checkout and this command re-offers to create it on every future run, forever. On the first real update run, `fe/.aiforging/patterns/` had never held a tracked file in the repo's entire history. The placeholder ends that loop and puts the two-tier explanation where someone will actually meet it.
+
+   **Every pattern-library glob must exclude `README.md`.** It is documentation, not a pattern.
 
 ### Target diff summary (per target)
 
@@ -195,6 +256,26 @@ For each approved update (workspace or target):
 1. Create the backup.
 2. Copy the new version from `${CLAUDE_PLUGIN_ROOT}`.
 3. For new additions (directories or files that didn't exist), create and copy.
+
+**Write the version stamp.** After every scope that was updated, record what it is now at:
+
+```bash
+echo "<plugin-version>" > <scope-root>/.aiforging/VERSION
+```
+
+Write it for the workspace and for every target that accepted updates — and **only** for those. A target the user skipped is still at its old version, and stamping it would make the next run trust a lie.
+
+**Offer to clear the backups.** Every overwrite left a `*.bak-*` file. They exist so the user can review, not so they can accumulate:
+
+> Seven `.bak-*` files were written next to the originals. Review the diff first, then I can remove them:
+>
+> ```bash
+> find . -name '*.bak-<timestamp>' -delete
+> ```
+>
+> Delete them now, or leave them for you to review first? [leave / delete]
+
+Default: **leave**. Offer once; do not delete without being asked. Use the exact timestamp from this run so the command cannot touch backups from an earlier one.
 
 **Do not commit.** After applying, print a summary of all changes made and suggest:
 

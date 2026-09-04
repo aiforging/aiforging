@@ -94,7 +94,7 @@ If someone is working directly in this repo (not from a forge workspace), they c
 
 This file was installed by `/aiforging:setup` along with:
 
-- `.aiforging/` — the conventions library (architecture, tdd, subagent-orchestration) and target-local pattern/anti-pattern folders (start empty; seeded patterns live in the workspace shared tier instead).
+- `.aiforging/` — the conventions library (architecture, tdd, subagent-orchestration), the target-local pattern/anti-pattern folders (each holding only its tier `README.md` until something is captured; seeded patterns live in the workspace shared tier instead), and `VERSION`, recording which plugin release these copies came from.
 - `.claude/skills/hammer-refactor/SKILL.md` — the executable Hammer stage, committed so teammates don't need the aiforging plugin installed to run it.
 - `.claude/skills/capture-pattern/SKILL.md` — the reactive Tempering feedback loop, committed so corrective moments during any interactive session in this repo can be persisted as pattern/anti-pattern files with one click.
 - `.claude/settings.json` — has an `enabledPlugins` block enabling `superpowers@claude-plugins-official` and `aiforging@claude-plugins-official`.

@@ -9,6 +9,14 @@ This directory is the **pattern library** for the Hammer stage of the forge. It 
 
 Each file is self-contained and describes exactly one concern. There is no monolithic "refactor rules" document. This is on purpose — see "Why one file per pattern" below.
 
+## The tier placeholder — `README.md` in a tier directory
+
+Every `patterns/` and `anti-patterns/` directory ships with a `README.md`. It is **not a pattern**, and **every glob over the library excludes it** — `hammer-refactor` when it builds the merged set, `capture-pattern` when it scans for duplicates and cross-links, `review-loop` when it hands the library to a review agent, and `uninstall` when it sorts plugin files from your captures.
+
+That last one matters most and is the easiest to get wrong. The usual test for "is this the plugin's file or the user's?" is the `seeded: true` frontmatter — and the placeholder has no frontmatter, by design, because target-local patterns do not carry any. So it fails the frontmatter test and looks like one of your captures. **Match it by filename instead.** A file named `README.md` inside a tier directory is always the plugin's placeholder.
+
+Why it exists at all: git cannot track an empty directory. A tier created with `mkdir` alone disappears the moment anything touches the working tree, is missing for every teammate who clones, and causes `/aiforging:update-targets` to offer to recreate it on every future run — indefinitely. The placeholder ends that, and gives the two-tier explanation a home in the directory you are about to write a pattern into.
+
 ## Two-tier pattern library
 
 Patterns exist at two tiers, and the `hammer-refactor` skill merges both when scanning a target:

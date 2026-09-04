@@ -61,6 +61,8 @@ templates/                  Bootstrap templates for forge workspace init (phase 
   workspace-README.md       Copied to <workspace>/README.md
   docs-features-README.md   Copied to <workspace>/docs/features/README.md
   feature-testing.md        Copied per-feature to docs/features/<name>/testing.md by /aiforging:new-feature
+  patterns-tier-README.md   Placeholder for .aiforging/patterns/ — git won't track an empty dir
+  anti-patterns-tier-README.md  Same, for anti-patterns/. EXCLUDED from every pattern-library glob
 conventions/                The library copied into target repos during onboarding
   CLAUDE.md.template        Per-target repo CLAUDE.md pointer
   features/                 Canonical feature-folder convention (also in templates/ for workspace seeding)

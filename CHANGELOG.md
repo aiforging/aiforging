@@ -5,6 +5,40 @@ All notable changes to the AI Forging plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-09-04
+
+Six fixes from the first real-world run of `/aiforging:update-targets`.
+
+v0.3.0 shipped with a manifest-driven upgrade path that had never been executed end to end. It was run the next day against a real monorepo (Symfony backend + React frontend, onboarded at v0.1.0, ten user-captured patterns, seven locally-customized convention files). **It passed every correctness check** — no user-owned file was modified, no file went missing, and a three-way merge preserved a hand-added cross-reference while taking the plugin's change to the same file.
+
+It also surfaced six defects, none of which the pre-release audit could have found. Every finding that audit produced was a claim the repo made *about itself*. Every one of these is a claim about the outside world: what a customized `CLAUDE.md` looks like, what git does with empty directories, what an existing repo's `.gitignore` already contains, what a person reads when they are interrupted.
+
+### Fixed
+
+- **The workspace marker check had a false negative.** `head -c 500 ./CLAUDE.md | grep -q "AI Forging workspace"` reported a genuine workspace as not-a-workspace, because the user had customized the top of the file and pushed the marker past the window. The run reasoned around it; a more literal execution would have aborted with "run `/aiforging:setup` first." Workspace `CLAUDE.md` files are *meant* to be customized — `/aiforging:update-targets` itself treats them as "commonly customized" — so any fixed byte window is a bug waiting on a paragraph. Now greps the whole file, in `setup.md`, `update-targets.md`, `new-feature.md`, and `capture-pattern`.
+
+- **`/aiforging:setup` could clobber an existing `.gitignore`.** It used `cat > ./.gitignore`, which is safe in Scenario A (new empty workspace) and destructive in Scenarios B and C, where the workspace *is* an existing repo that already has one. Now appends only the rules that are genuinely absent, matched whole-line and fixed-string, and never rewrites the file.
+
+- **The `.gitignore` rules never reached existing users.** Seven `.bak-*` backups landed tracked-eligible because the workspace had `.claude/*.bak-*`, which matches neither nested paths nor the backups written into `.aiforging/` and `docs/`. The plugin had carried the correct `*.bak-*` rule for releases — but `.gitignore` was not in `artifacts.json`, so nothing propagated it. **That is precisely the failure mode the manifest was built to eliminate, reproduced by the manifest.** `.gitignore` is now a manifest entry with a new `append-missing-lines` policy; `update-targets` checks each required rule and offers to add what is missing. It also now offers to delete the backups once you have reviewed the diff.
+
+- **Empty tier directories cannot survive git.** `update-targets` offered to create `fe/.aiforging/patterns/`, absent because it had never held a tracked file in the repository's entire history — `mkdir` alone produces a directory git will not store, so it vanishes on the next checkout and the offer recurs forever, for every teammate, on every run. Both tier directories are now seeded with a `README.md` explaining the two-tier model: git tracks it, the loop ends, and the explanation lands in the directory someone is about to write a pattern into. **Every pattern-library glob now excludes `README.md`** — in `hammer-refactor`, `capture-pattern` (both its duplicate scan and its cross-link step), `review-loop` (which must also put the exclusion in the prompt of every review agent it dispatches), `update-targets`, and `uninstall`, where a placeholder with no `seeded: true` frontmatter would otherwise be misclassified as the user's own capture and kept. The manifest gained a `$precedence` rule for the same reason: three of the plugin's own files matched a `user_owned` pattern literally, which a strict reading would have made permanently uncorrectable.
+
+- **The upgrade-time offer for new artifacts read like a changelog entry.** It described what `browser-testing` and `review-loop` *do* and never said why anyone would want them, while `/aiforging:setup` carried the actual reason ("a failing step means the product and the spec disagree, and deciding which one is wrong needs a person"). The asymmetry was backwards: at install time the user is already bought in, at upgrade time they are being interrupted about something they have never heard of. The spec was the weak link, not the execution — `update-targets` had only been told to give "an offer with an explanation." It now carries the same reason the install-time offer does.
+
+- **Interim counts were off by one.** The pre-apply summary said "10 features" and "11 user-captured patterns" where the truth was 9 and 10, then self-corrected in the final summary. Cosmetic in effect, but both numbers appeared in the sentence describing *what is protected from modification* — the worst available place to be approximately right, since it is the figure a user checks before granting permission. Counts must now be derived from the same enumeration used to classify, and sets small enough to name are listed rather than counted.
+
+### Added
+
+- **`.aiforging/VERSION`** — a one-line stamp recording which plugin release a scope's copied artifacts correspond to, written by `setup` at onboarding and by `update-targets` after a successful run. Reversing a call made during v0.3.0 design, where it was deferred as unnecessary.
+
+  The first real run had to *reconstruct* provenance: thirteen files showed as modified, most of them user customizations of files the release never touched, and separating those took several extra passes. It worked because the run was careful. A less careful one presents all thirteen as needing update, the user accepts, and their customizations are replaced — with backups, but backups nobody reads. With a stamp, `update-targets` can diff on-disk against the plugin *at the version the user installed* and know the difference. Absent (any workspace onboarded before 0.3.1), it falls back to inference, says so out loud, and defaults customized-looking files to skip rather than overwrite.
+
+- **`templates/patterns-tier-README.md`** and **`templates/anti-patterns-tier-README.md`** — the tier placeholders.
+
+### Notes for existing users
+
+`/aiforging:update-targets` again. Everything here is additive and nothing under `docs/features/` is touched. This run will also write your first `.aiforging/VERSION`, offer any missing `.gitignore` rules, and install the tier placeholders — after which the "create the empty patterns directory?" prompt stops recurring.
+
 ## [0.3.0] — 2026-09-03
 
 Verification stages, scoped test suites, and a manifest so future additions actually reach existing users.

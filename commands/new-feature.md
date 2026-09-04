@@ -37,6 +37,12 @@ The current directory is a forge workspace if ALL of the following are true:
 - `./docs/features/` exists as a directory.
 - `./.claude/settings.json` exists and contains an `enabledPlugins` key.
 
+**Grep the whole `CLAUDE.md`, never a `head -c` window.** Workspace `CLAUDE.md` files are meant to be customized, and a user who adds a paragraph above the marker pushes it out of any fixed byte window — the check then reports a genuine workspace as not-a-workspace. This is not hypothetical; a 500-byte window did exactly that on the first real-world `/aiforging:update-targets` run.
+
+```bash
+test -f ./CLAUDE.md && grep -q "AI Forging workspace" ./CLAUDE.md && echo "MARKER_OK" || echo "NO_MARKER"
+```
+
 If all three hold, use the current directory as the workspace root. Proceed to Step 2.
 
 ### 1b. Outside a forge workspace — check the pointer file

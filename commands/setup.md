@@ -104,7 +104,7 @@ The current working directory (cwd) at invocation time tells you which phase to 
 
 **A directory is already a forge workspace if the following REQUIRED markers are present:**
 
-1. `./CLAUDE.md` exists AND contains the string `AI Forging workspace` somewhere in the first 500 bytes (the marker from the workspace template).
+1. `./CLAUDE.md` exists AND contains the string `AI Forging workspace` **anywhere in the file** (the marker from the workspace template). Search the whole file — never a leading byte window. Users customize this file, and a paragraph added above the marker pushes it out of any fixed window, at which point a real workspace is reported as not-a-workspace.
 2. `./docs/features/README.md` exists.
 3. `./.claude/settings.json` exists (committed, holds `enabledPlugins`).
 
@@ -115,11 +115,13 @@ The current working directory (cwd) at invocation time tells you which phase to 
 Run these checks:
 
 ```bash
-test -f ./CLAUDE.md && head -c 500 ./CLAUDE.md | grep -q "AI Forging workspace" && echo "HAS_CLAUDE_MD" || echo "NO_CLAUDE_MD"
+test -f ./CLAUDE.md && grep -q "AI Forging workspace" ./CLAUDE.md && echo "HAS_CLAUDE_MD" || echo "NO_CLAUDE_MD"
 test -f ./docs/features/README.md && echo "HAS_FEATURES_README" || echo "NO_FEATURES_README"
 test -f ./.claude/settings.json && echo "HAS_SETTINGS_JSON" || echo "NO_SETTINGS_JSON"
 test -f ./.claude/settings.local.json && echo "HAS_SETTINGS_LOCAL" || echo "NO_SETTINGS_LOCAL"
 ```
+> **Grep the whole file, never a `head -c` window.** Workspace `CLAUDE.md` files are meant to be customized — `/aiforging:update-targets` itself treats them as "commonly customized" — and a user who adds a paragraph above the marker pushes it out of any fixed byte window. A truncated check reports a genuine workspace as not-a-workspace and aborts. This happened on the first real-world run of `/aiforging:update-targets` (ServiceLine, v0.3.0). The file is small and read once; there is nothing to optimize here.
+
 
 **Migration note:** if you find a workspace that has `./CLAUDE.md` and `./docs/features/README.md` but only `./.claude/settings.json` (no `settings.local.json`) AND that `settings.json` contains `permissions.additionalDirectories`, the workspace was created by an older version of this command that hadn't yet split the settings files. Treat this as Phase B (workspace exists) but warn the user and offer to migrate: move `permissions.additionalDirectories` from `settings.json` to `settings.local.json`, keeping `enabledPlugins` in `settings.json`. Do the migration before proceeding with onboarding.
 
@@ -208,25 +210,33 @@ JSON
 fi
 
 # .gitignore — lives at the workspace root. Protects settings.local.json and the
-# timestamped backups our helper scripts leave behind. Active immediately if the user
-# later git-inits the workspace (Step A.4 or Step B.10).
-cat > ./.gitignore <<'GITIGNORE'
-# AI Forging workspace — .gitignore
+# timestamped backups the helper scripts and /aiforging:update-targets leave behind.
 #
-# Keep per-user config and helper-script backups out of the shared repo so teammates
-# who clone the workspace don't inherit absolute paths from the author's machine.
+# APPEND, NEVER OVERWRITE. In Scenario A the workspace is usually a new directory with
+# no .gitignore. In Scenarios B and C the workspace IS an existing repo that already has
+# one — very possibly a long one — and clobbering it would be destructive and silent.
+# Add only the lines that are missing, and only once.
 
-# Per-user Claude Code settings (absolute paths to target repos live here)
-.claude/settings.local.json
-
-# Helper-script backups (configure-plugins.py, configure-directories.py)
-.claude/*.bak-*
+AIF_GITIGNORE_RULES='.claude/settings.local.json
 *.bak-*
-
-# OS cruft
 .DS_Store
-Thumbs.db
-GITIGNORE
+Thumbs.db'
+
+if [ ! -f ./.gitignore ]; then
+  printf '# AI Forging workspace\n#\n# Keep per-user config (absolute paths to target repos) and the timestamped\n# backups our tooling leaves behind out of the shared repo.\n\n' > ./.gitignore
+  printf '%s\n' "$AIF_GITIGNORE_RULES" >> ./.gitignore
+else
+  # Append only what is genuinely absent. Fixed-string, whole-line matching — a rule
+  # is "present" only if it appears as its own line, not as a substring of another.
+  MISSING=""
+  while IFS= read -r rule; do
+    grep -qxF "$rule" ./.gitignore || MISSING="${MISSING}${rule}\n"
+  done <<< "$AIF_GITIGNORE_RULES"
+  if [ -n "$MISSING" ]; then
+    printf '\n# AI Forging\n' >> ./.gitignore
+    printf '%b' "$MISSING" >> ./.gitignore
+  fi
+fi
 
 # Copy the capture-pattern skill into the workspace so it auto-activates when
 # Claude is launched from here. This is the Tempering feedback loop: during any
@@ -241,12 +251,25 @@ cp ${CLAUDE_PLUGIN_ROOT}/skills/capture-pattern/SKILL.md \
 # Seed the SHARED TIER of the pattern library at the workspace level.
 # These are the framework's starting patterns — they have applies-to frontmatter
 # for stack filtering. hammer-refactor reads this directory and filters by target
-# stack. Target repos get EMPTY local-tier directories during Phase B onboarding;
-# the seeded content lives here at the workspace level (Decision 22 in PLAN.md).
+# stack. Target repos get their own local-tier directories during Phase B onboarding —
+# holding only a tier README until something is captured. The seeded content lives
+# here at the workspace level (Decision 22 in PLAN.md).
 mkdir -p ./.aiforging/patterns ./.aiforging/anti-patterns
 cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/patterns/*.md      ./.aiforging/patterns/
 cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/anti-patterns/*.md ./.aiforging/anti-patterns/
 cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/README.md          ./.aiforging/README.md
+
+# Tier placeholders. Git cannot track an empty directory, so a tier with no files in it
+# disappears on the next clone and the tooling re-offers to create it forever. These also
+# put the two-tier explanation where someone will actually meet it. Every pattern-library
+# glob excludes README.md.
+cp ${CLAUDE_PLUGIN_ROOT}/templates/patterns-tier-README.md      ./.aiforging/patterns/README.md
+cp ${CLAUDE_PLUGIN_ROOT}/templates/anti-patterns-tier-README.md ./.aiforging/anti-patterns/README.md
+
+# Version stamp — which plugin release these copies came from. /aiforging:update-targets
+# reads it to tell "the plugin changed this file" apart from "the user changed this file",
+# which is the distinction it gets wrong most expensively. One line, no formatting.
+python3 -c "import json;print(json.load(open('${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json'))['version'])" > ./.aiforging/VERSION
 ```
 
 Then enable the required plugins in the workspace's **committed** settings file so Claude Code automatically activates them when any teammate runs Claude from this directory:
@@ -430,9 +453,11 @@ Files created:
   ./.claude/skills/capture-pattern/SKILL.md        ← Tempering feedback loop
   ./.claude/skills/browser-testing/SKILL.md        ← optional: walk testing.md in a browser
   ./.claude/skills/review-loop/SKILL.md            ← optional: rounds of review, triage, fix
-  ./.aiforging/patterns/                           ← shared-tier seeded patterns
-  ./.aiforging/anti-patterns/                      ← shared-tier seeded anti-patterns
-  ./.gitignore                                     ← protects settings.local.json + backups
+  ./.aiforging/README.md                           ← pattern file format + two-tier model
+  ./.aiforging/patterns/                           ← shared-tier seeded patterns (+ tier README)
+  ./.aiforging/anti-patterns/                      ← shared-tier seeded anti-patterns (+ tier README)
+  ./.aiforging/VERSION                             ← plugin version these copies came from
+  ./.gitignore                                     ← rules appended, never overwritten
 
 Dependencies:
   superpowers plugin: <installed | skipped | missing>
@@ -467,9 +492,11 @@ Workspace files:
   ./.claude/skills/hammer-refactor/SKILL.md        ← executable Hammer stage
   ./.claude/skills/browser-testing/SKILL.md        ← optional: walk testing.md in a browser
   ./.claude/skills/review-loop/SKILL.md            ← optional: rounds of review, triage, fix
-  ./.aiforging/patterns/                           ← shared-tier seeded patterns
-  ./.aiforging/anti-patterns/                      ← shared-tier seeded anti-patterns
-  ./.gitignore                                     ← protects settings.local.json + backups
+  ./.aiforging/README.md                           ← pattern file format + two-tier model
+  ./.aiforging/patterns/                           ← shared-tier seeded patterns (+ tier README)
+  ./.aiforging/anti-patterns/                      ← shared-tier seeded anti-patterns (+ tier README)
+  ./.aiforging/VERSION                             ← plugin version these copies came from
+  ./.gitignore                                     ← rules appended, never overwritten
 
 Onboarded targets:
   <target-1-path>/  (<stack>) — conventions installed, ANALYSIS.md written
@@ -512,7 +539,7 @@ Only run these steps if phase detection routed here, OR if Phase A's Step A.3 ro
 > 2. **Superpowers prerequisite check.** Verify superpowers is installed at the user level (user is running Claude Code on a machine that has it). If not, recommend installing. This step does NOT install anything into the target repo — superpowers is a user-level plugin. But its presence is recorded in the target's `.aiforging/CLAUDE.md` as a documented prerequisite so future contributors know.
 > 3. **Conventions library** → copy `conventions/architecture/` and `conventions/tdd/` into `<target>/.aiforging/`. Also write a per-repo `.aiforging/CLAUDE.md` pointer. (Backend/fullstack only.) For monorepo sub-projects, `<target>` is the sub-project path (e.g., `./backend/`), not the repo root.
 > 4. **AI Forging skills bundle** → copy `hammer-refactor` SKILL.md to `<target>/.claude/skills/hammer-refactor/SKILL.md` (executable Hammer stage) and `capture-pattern` SKILL.md to `<target>/.claude/skills/capture-pattern/SKILL.md` (reactive Tempering feedback loop). (Backend/fullstack only; offered as a bundle with default Y, with a fallback to per-skill offers if the bundle is declined.) For monorepo sub-projects, skills install at the REPO ROOT's `.claude/skills/` (not per sub-project) since Claude Code reads skills from the cwd's `.claude/skills/`.
-> 5. **Pattern + anti-pattern library seed** → create EMPTY `<target>/.aiforging/patterns/` and `<target>/.aiforging/anti-patterns/` directories for the target-local tier. Seeded patterns live in the workspace shared tier (`.aiforging/patterns/` at the workspace root), installed during Phase A Step A.2. (Backend/fullstack only; offered with default Y if hammer-refactor was installed.) If the workspace shared tier is empty (e.g., a cloned workspace where shared patterns weren't committed), fall back to copying seeded patterns into the target-local tier.
+> 5. **Pattern + anti-pattern library seed** → create `<target>/.aiforging/patterns/` and `<target>/.aiforging/anti-patterns/` for the target-local tier, each with a tier `README.md` placeholder (git will not keep an empty directory, and an empty tier makes this command re-offer to create it forever). Applies to backend, fullstack, and any frontend target that has an `.aiforging/`. Seeded patterns live in the workspace shared tier (`.aiforging/patterns/` at the workspace root), installed during Phase A Step A.2. (Backend/fullstack only; offered with default Y if hammer-refactor was installed.) If the workspace shared tier is empty (e.g., a cloned workspace where shared patterns weren't committed), fall back to copying seeded patterns into the target-local tier.
 > 6. **Architecture analyzer run** → invoke the `architecture-analyzer` skill against the target, write output to `<target>/.aiforging/ANALYSIS.md`. (Backend/fullstack only.)
 > 7. **Frontend testing layer** (optional) → for frontend/fullstack, offer the Playwright conventions.
 > 8. **Draft a feature folder in the workspace** (optional) → turn analyzer findings into `<workspace>/docs/features/<name>/spec.md` + `plan.md` in the AI Forging slice format.
@@ -640,11 +667,18 @@ For projects with `role` in (`backend`, `fullstack`):
      - `${CLAUDE_PLUGIN_ROOT}/conventions/subagent-orchestration/` → `<target>/.aiforging/subagent-orchestration/`
      - Do NOT copy `conventions/features/` into the target — that convention belongs in the workspace, not in a target repo.
 2. Write `<target>/.aiforging/CLAUDE.md` from `${CLAUDE_PLUGIN_ROOT}/conventions/CLAUDE.md.template`.
+2b. Write the version stamp so future updates can tell plugin changes from your changes:
+
+   ```bash
+   python3 -c "import json;print(json.load(open('${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json'))['version'])" > <target>/.aiforging/VERSION
+   ```
 3. Check whether `<target>/CLAUDE.md` exists at the target repo root.
    - If it does, append (don't overwrite) a section pointing at `.aiforging/`.
    - If it doesn't, create it with just that section.
 
-For projects with `role` == `frontend`: skip this step. Frontend projects can optionally install the Playwright testing layer in Step B.8.
+For projects with `role` == `frontend`: skip the architecture/tdd/subagent-orchestration conventions — those are backend-shaped. Frontend projects can optionally install the Playwright testing layer in Step B.8.
+
+**But a frontend target that gets an `.aiforging/` at all still gets the version stamp and the pattern tiers.** If Step B.8 installs the Playwright layer, the directory exists, `/aiforging:update-targets` will count this target as onboarded, and `capture-pattern` can be asked to write a frontend-scoped pattern into it. Without a stamp such a target has no recorded provenance; without tiers, a capture has nowhere to go. So for frontend targets, run step 2b (the VERSION stamp) and Step B.6 (the tier directories and their placeholders) even though the rest of this step is skipped. This is not hypothetical — it is exactly the shape of the `fe/` sub-project that exposed the empty-tier bug.
 
 ### Step B.5 — Offer to install the AI Forging skills into the target repo
 
@@ -684,13 +718,23 @@ cp ${CLAUDE_PLUGIN_ROOT}/skills/capture-pattern/SKILL.md \
 
 **Why capture-pattern lives in both the workspace and each target repo.** Phase A Step A.2 already installed `capture-pattern` into the forge workspace's `.claude/skills/` so it auto-activates in cross-repo forge sessions (where it resolves the target to write to by reading `settings.local.json`). Installing it a second time in each target repo gives teammates who clone *just the target repo* the same feedback loop when they're working on the target directly in that repo (e.g., doing a code review outside the forge workspace). The two copies are identical — the per-target copy is there for discoverability, not for a different behavior.
 
-### Step B.6 — Create empty target-local pattern directories
+### Step B.6 — Create the target-local pattern directories
 
-Create the **target-local tier** directories in the target repo. These start empty — they're for repo-specific pattern captures that only apply to this target. The seeded patterns (shipped with the plugin) already live in the **workspace shared tier** (seeded in Phase A Step A.2). The `hammer-refactor` skill merges both tiers on every run.
+**Applies to every onboarded target that has an `.aiforging/` — backend, fullstack, and any frontend target that took the Playwright layer in Step B.8.** A target with conventions but no tiers has nowhere to put a capture.
+
+Create the **target-local tier** directories in the target repo. They hold repo-specific captures that apply only to this target. The seeded patterns (shipped with the plugin) live in the **workspace shared tier** (Phase A Step A.2); `hammer-refactor` merges both tiers on every run.
 
 ```bash
 mkdir -p <target>/.aiforging/patterns <target>/.aiforging/anti-patterns
+cp ${CLAUDE_PLUGIN_ROOT}/templates/patterns-tier-README.md      <target>/.aiforging/patterns/README.md
+cp ${CLAUDE_PLUGIN_ROOT}/templates/anti-patterns-tier-README.md <target>/.aiforging/anti-patterns/README.md
 ```
+
+**These directories are not created empty, and the placeholder is the reason they survive.** Git cannot track an empty directory: a tier created with `mkdir` alone disappears the moment anything touches the working tree, is gone for every teammate who clones, and causes `/aiforging:update-targets` to re-offer to create it on every future run — forever. On the first real-world update run, one such directory had never held a tracked file in the repo's entire history.
+
+The placeholder also puts the two-tier explanation where someone will actually meet it: in the directory they are about to write a pattern into.
+
+**Every pattern-library glob excludes `README.md`.** It is documentation about the tier, not a pattern.
 
 If this is the first onboarding AND the workspace shared tier hasn't been seeded yet (e.g., the workspace was created by an older version of the plugin that predates the two-tier model), seed it now:
 
@@ -701,12 +745,14 @@ if [ ! -d ./.aiforging/patterns ] || [ -z "$(ls -A ./.aiforging/patterns/ 2>/dev
   cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/patterns/*.md      ./.aiforging/patterns/
   cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/anti-patterns/*.md ./.aiforging/anti-patterns/
   cp ${CLAUDE_PLUGIN_ROOT}/conventions/refactoring/README.md          ./.aiforging/README.md
+  cp ${CLAUDE_PLUGIN_ROOT}/templates/patterns-tier-README.md          ./.aiforging/patterns/README.md
+  cp ${CLAUDE_PLUGIN_ROOT}/templates/anti-patterns-tier-README.md     ./.aiforging/anti-patterns/README.md
 fi
 ```
 
 Tell the user:
 
-> Created empty `patterns/` and `anti-patterns/` directories in `<target>/.aiforging/` for repo-specific pattern captures. The framework's seeded patterns (fat-controller, primitive-obsession, extract-service-from-controller) live in the workspace's shared tier at `<workspace>/.aiforging/` and apply to all targets with matching stacks. Use `capture-pattern` during code reviews to add new patterns — it'll ask whether each capture should be shared or target-local.
+> Created `patterns/` and `anti-patterns/` directories in `<target>/.aiforging/` for repo-specific pattern captures, each with a short README explaining the two-tier model (and keeping the directory alive — git won't track an empty one). The framework's seeded patterns (fat-controller, primitive-obsession, extract-service-from-controller) live in the workspace's shared tier at `<workspace>/.aiforging/` and apply to all targets with matching stacks. Use `capture-pattern` during code reviews to add new patterns — it'll ask whether each capture should be shared or target-local.
 
 ### Step B.7 — Run the architecture-analyzer skill on the target
 
