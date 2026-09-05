@@ -43,7 +43,7 @@ Shared, it means:
 
 Two practices worth stealing: **one workspace per project**, committed as its own repo, and **one engineer owning a feature end to end** rather than splitting it between a backend and a frontend specialist. The AI writes the code; the guardrails are what make it reasonable for one person to review across the whole stack.
 
-You can absolutely run a workspace solo — it works the same way. It just works for one person.
+You can run a workspace solo and most of this still lands — three months from now you're effectively a different engineer looking at your own feature, with no more memory of the decisions than a colleague would have. Sharing it is what adds the handoff on top.
 
 Three locations, three lifecycles, and it's worth knowing which is which:
 
