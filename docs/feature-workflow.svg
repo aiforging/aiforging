@@ -31,6 +31,7 @@
   <!-- Title -->
   <text x="360" y="44" text-anchor="middle" font-size="20" font-weight="700" fill="#111827">Building a Feature with AI Forging</text>
   <text x="360" y="66" text-anchor="middle" font-size="12" fill="#6b7280">Human decisions in gold. AI work in color. Every stage has a gate.</text>
+  <text x="360" y="1272" text-anchor="middle" font-size="11" fill="#9ca3af">The forge workspace is shared and committed — any engineer can resume any feature.</text>
 
   <!-- Legend -->
   <rect x="118" y="80" width="14" height="14" rx="3" fill="url(#human)"/>
@@ -44,15 +45,26 @@
   <rect x="536" y="80" width="14" height="14" rx="3" fill="url(#verify)"/>
   <text x="556" y="92" font-size="11" fill="#6b7280">Verify (optional)</text>
 
-  <!-- ==================== STEP 1: Kick off ==================== -->
-  <!-- Human gate -->
-  <rect x="60" y="115" width="600" height="56" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
-  <rect x="60" y="115" width="6" height="56" rx="3" fill="url(#human)"/>
-  <text x="88" y="140" font-size="14" font-weight="600" fill="#92400e">/aiforging:forge my-feature "what I want to build"</text>
-  <text x="88" y="158" font-size="11.5" fill="#78716c">You name it, describe it, pick the shape. AI scaffolds the feature folder.</text>
+  <!-- ==================== STEP 1: Two entry points ==================== -->
+  <rect x="60" y="112" width="284" height="62" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="60" y="112" width="6" height="62" rx="3" fill="url(#human)"/>
+  <text x="82" y="133" font-size="12.5" font-weight="600" fill="#92400e">/aiforging:forge my-feature "…"</text>
+  <text x="82" y="150" font-size="11" fill="#78716c">Start something new. Name it, describe it,</text>
+  <text x="82" y="164" font-size="11" fill="#78716c">pick the shape. AI scaffolds the folder.</text>
 
-  <!-- Arrow -->
-  <line x1="360" y1="171" x2="360" y2="191" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="360" y="147" text-anchor="middle" font-size="11.5" font-style="italic" fill="#9ca3af">or</text>
+
+  <rect x="376" y="112" width="284" height="62" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="376" y="112" width="6" height="62" rx="3" fill="url(#human)"/>
+  <text x="398" y="133" font-size="12.5" font-weight="600" fill="#92400e">/aiforging:resume [feature]</text>
+  <text x="398" y="150" font-size="11" fill="#78716c">Pick up work already here — yours, or a</text>
+  <text x="398" y="164" font-size="11" fill="#78716c">teammate's from months ago. Read-only.</text>
+
+  <!-- Converging arrows -->
+  <line x1="202" y1="174" x2="202" y2="184" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="518" y1="174" x2="518" y2="184" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <path d="M202 184 L202 188 Q202 192 206 192 L514 192 Q518 192 518 188 L518 184" fill="none" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="360" y1="192" x2="360" y2="191" stroke="#d1d5db" stroke-width="1.5"/>
   <polygon points="354,188 360,196 366,188" fill="#d1d5db"/>
 
   <!-- ==================== STEP 2: Spec + Plan ==================== -->

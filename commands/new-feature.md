@@ -109,6 +109,8 @@ If ANY match is found, stop and present the matches to the user. Ask:
 
 If no match is found, skip this confirmation and proceed directly to Step 4.
 
+**If the user's intent turns out to be picking up existing work rather than starting something new** — an exact match, or they say "oh, that one already exists" — hand off to `/aiforging:resume <feature>` instead of extending. Resume reads the spec, plan, notes and open escalations and reports where things stand; this command only scaffolds. On a shared workspace the match is frequently a feature someone else started, and orienting into it is the right first move.
+
 ## Step 4 — New feature: choose the shape
 
 Ask the user whether this feature will have one work item or several:
@@ -284,6 +286,14 @@ Find the highest existing `NN-` prefix and increment it. If `01-foo` and `02-bar
 3. Append the new work item to the "Work items" list in `docs/features/<existing>/overview.md`, in order.
 4. If `docs/features/<existing>/testing.md` exists, append a `## <NN> — <new work item>` section to it with placeholder checkboxes, so the feature's single checklist keeps covering the whole feature. Do NOT create a second `testing.md` inside the work-item folder. If it does not exist and this work item has a UI surface, run the Step 4c offer now.
 5. **Do not create or update `summary.md` here.** It is written after implementation, not during scoping.
+
+## Step 5.5 — Refresh the feature index
+
+Add the new feature to `<workspace>/docs/features/INDEX.md` — the generated table `resume-feature` maintains. A new feature's row is `spec only`, today's date, and the Summary line you just wrote.
+
+If the file does not exist, seed it from `${CLAUDE_PLUGIN_ROOT}/templates/features-INDEX.md` first. Do not hand-maintain anything else in it; every column is derived, and `/aiforging:resume` rebuilds the whole table on its next run.
+
+This matters on a shared workspace: the index is how a teammate discovers that this feature exists at all, without opening nine spec files.
 
 ## Step 6 — Summary checkpoint (Planning Workflow Step 1 handoff)
 

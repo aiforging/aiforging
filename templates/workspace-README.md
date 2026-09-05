@@ -1,6 +1,8 @@
 # Forge Workspace
 
-This directory is an **AI Forging workspace** — a central orchestration hub for driving feature work across one or more codebases.
+This directory is an **AI Forging workspace** — a shared, committed hub from which the team drives feature work across one or more codebases.
+
+**It belongs in git, and it belongs to the team.** Every feature's spec, plan, QA checklist and review record lives here. That is what lets one engineer start a feature and another finish it: pick up where someone left off with `/aiforging:resume`, or wire a fresh clone to your machine with `/aiforging:join`. A workspace kept on one laptop still works — it just works for exactly one person, and the specs stop being useful the week that person is out.
 
 > **This is not a project.** No application source code lives here. The actual code being worked on lives in the repos registered under `permissions.additionalDirectories` in `.claude/settings.local.json`.
 
@@ -55,14 +57,14 @@ The `.gitignore` at the workspace root protects `settings.local.json` from accid
 {
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
-    "aiforging@claude-plugins-official": true
+    "aiforging@aiforging": true
   }
 }
 ```
 
 The plugins themselves are installed once per user at the machine level — Claude Code reads the enable-map at session start and activates the matching installs. If you haven't installed them yet:
 
-- **[aiforging](https://github.com/aiforging/aiforging)** — the framework that defines the slice plan format and ships the `hammer-refactor`, `capture-pattern`, `architecture-analyzer`, `browser-testing`, and `review-loop` skills. Install with `/plugin install aiforging@claude-plugins-official`.
+- **[aiforging](https://github.com/aiforging/aiforging)** — the framework that defines the slice plan format and ships the `hammer-refactor`, `capture-pattern`, `architecture-analyzer`, `browser-testing`, and `review-loop` skills. Install with `/plugin install aiforging@aiforging`.
 - **[superpowers](https://github.com/obra/superpowers)** — the foundation. Provides `test-driven-development`, `brainstorming`, `writing-plans`, `executing-plans`, and `subagent-driven-development`. AI Forging depends on these. Install with `/plugin install superpowers@claude-plugins-official`.
 
 If you installed either from a different marketplace (for example `superpowers@superpowers-dev` via `/plugin marketplace add obra/superpowers`), update `.claude/settings.json` to match the identifier you actually installed, or re-run `/aiforging:setup` and supply the right marketplace source when prompted.

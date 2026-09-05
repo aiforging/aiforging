@@ -301,6 +301,7 @@ During execution, things will surface that don't belong in the spec or the plan:
 
 ## Lifecycle
 
+0. **Or resume an existing one.** `/aiforging:resume` is the other entry point, and on a shared workspace it is the more common one — it reads a feature's spec, plan, notes and open escalations and reports where things stand, whether you paused it last week or a teammate started it in March. `docs/features/INDEX.md` is the generated table it works from.
 1. **New feature.** User (or `/aiforging:new-feature`, aliased `/aiforging:forge`) determines scope, picks flat vs nested, and creates `docs/features/<name>/` with a spec.md skeleton and Summary section. Confirm Summary before proceeding.
 2. **Spec phase.** Run Steps 1–2 of the Planning workflow: grouped clarifying questions, themed rounds, architecture-aware. Human approval of the completed spec.
 3. **Architecture review.** Step 3: read every affected target's `.aiforging/` and root `CLAUDE.md` before writing plan.md.

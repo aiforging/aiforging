@@ -5,6 +5,42 @@ All notable changes to the AI Forging plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-09-04
+
+**Teams.** The forge workspace was always meant to be a shared git repository the whole team clones — that is why feature specs, plans and review records live in files rather than in a chat transcript. The plugin never quite said so, and in one important respect never quite supported it.
+
+### Added
+
+- **`/aiforging:join`** — the flow for the second engineer onward. Clone a workspace a teammate created, run this, and it locates each target repo on your machine (offering to clone what you don't have), writes your own gitignored `settings.local.json`, verifies your plugin prerequisites, and shows you what the team is working on. It re-onboards nothing: the conventions and skills came with the clone.
+
+- **`.aiforging/targets.json`** — a committed registry of which repos a workspace forges: name, git remote, role, stack. **This closes a real hole.** The target list previously existed *only* in `settings.local.json`, which is gitignored — correctly, since it holds absolute paths. So a workspace could be committed, pushed and cloned, and the person who cloned it had no way to discover what it forged. The workspace was shareable in principle and not in practice.
+
+- **`/aiforging:resume` and the `resume-feature` skill** — pick up a feature you did not start. Reads the spec, plan, notes, QA checklist and any open review escalations, then reports what's done, what's next, what was deliberately deferred, and who last touched it. Read-only: it orients and stops, because on a shared workspace the plan in front of you is often someone else's and its decisions have reasons that may not be written down.
+
+  Status comes from counting the plan's own checkboxes rather than from a status field. Nothing to remember to update, and it cannot disagree with the plan — because it *is* the plan.
+
+- **`docs/features/INDEX.md`** — a generated table of every feature with status, last activity and a one-line summary, so a teammate can see what exists without opening nine spec files. Every column is derived from the feature folders and git; `resume-feature` rebuilds it on each run and self-heals folders that were created by hand.
+
+### Changed
+
+- **`/aiforging:setup` treats a workspace as shared by default.** git-init and an initial commit are the expected path rather than an offer to be talked into, and setup asks about a remote and explains what pushing buys. Solo use still works identically and is mentioned as a variation.
+
+- **Setup routes a joiner away from Phase B.** If the workspace has a target registry but no `settings.local.json`, the user has cloned someone else's workspace — setup now says so and points at `/aiforging:join` instead of re-onboarding targets that already have their conventions, which would have produced an unwanted diff on shared files.
+
+- **The README is 40% shorter and reorganized** around install → day-to-day → upgrade → remove, with the team model near the top. Removed: the "who this is for" section, the full plugin file tree, and most of the internal mechanics. The upgrade section went from a hundred lines to thirty, with starting-over folded into a collapsed block.
+
+### Fixed
+
+- **`aiforging@claude-plugins-official` does not exist**, and `/aiforging:setup` was writing it into `enabledPlugins` in three places — producing a block that looks correct and silently matches nothing. The correct identifier is `aiforging@aiforging`, from the plugin's own marketplace. (`superpowers@claude-plugins-official` is real and unchanged.) Setup now opens with a note on why the two plugins use different marketplace identifiers, and tells the reader to check `claude plugin list` rather than assume.
+
+### Notes for existing users
+
+`/aiforging:update-targets` as usual. New this version and offered, not installed silently: the `resume-feature` skill and the feature index.
+
+**`.aiforging/targets.json` is not created retroactively.** A workspace onboarded before 0.4.0 has no registry, so `/aiforging:join` falls back to inferring targets from committed plans and `.aiforging/` directories, asks you to confirm, and offers to write the registry — after which the next person to join doesn't have to guess. Onboarding a new target with `/aiforging:setup` also creates it.
+
+If you enabled the plugin before this release, check your workspace and target `.claude/settings.json` for `aiforging@claude-plugins-official` and change it to `aiforging@aiforging`.
+
 ## [0.3.2] — 2026-09-04
 
 One regression fix. **If you are on 0.3.1, take this before running `/aiforging:update-targets`.**

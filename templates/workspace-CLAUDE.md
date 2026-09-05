@@ -3,7 +3,7 @@
      stop being recognized as a workspace. -->
 # Forge Workspace — Claude Context
 
-> **You are in an AI Forging workspace.** This is NOT a codebase. It is a central orchestration directory from which cross-repo feature work is driven. The actual code lives in the repos registered under `permissions.additionalDirectories` in `.claude/settings.local.json` (the gitignored, per-user settings file — see the "Settings file split" section below).
+> **You are in an AI Forging workspace.** This is NOT a codebase. It is a shared, committed orchestration directory from which the team drives feature work — its feature folders are the durable record any engineer can pick up from, via `/aiforging:resume`. The actual code lives in the repos registered under `permissions.additionalDirectories` in `.claude/settings.local.json` (the gitignored, per-user settings file — see the "Settings file split" section below).
 
 ## First thing to do in any session
 
@@ -109,7 +109,7 @@ Phase A of `/aiforging:setup` wrote an `enabledPlugins` block into this workspac
 {
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
-    "aiforging@claude-plugins-official": true
+    "aiforging@aiforging": true
   }
 }
 ```

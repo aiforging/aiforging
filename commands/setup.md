@@ -56,7 +56,7 @@ Then invoke each helper with `$FORGE_PY` in place of `uv run`:
 ```bash
 $FORGE_PY ${CLAUDE_PLUGIN_ROOT}/scripts/configure-plugins.py enable \
   --settings-file ./.claude/settings.json \
-  --plugin aiforging@claude-plugins-official
+  --plugin aiforging@aiforging
 ```
 
 Every helper-script invocation below uses this pattern. If you see `uv run …` bare without the probe block above it, that's a bug — add the probe.
@@ -140,7 +140,13 @@ test -f ./.claude/settings.local.json && echo "HAS_SETTINGS_LOCAL" || echo "NO_S
 
 **Route to phase:**
 
-- All three required markers present → **Phase B (onboard-project)**. (Presence or absence of `settings.local.json` distinguishes Scenario A from B/C but doesn't change the phase.)
+- All three required markers present, **but `.aiforging/targets.json` lists targets and there is no `.claude/settings.local.json`** → the user has cloned a workspace someone else created and is **joining** it, not extending it. Do NOT run Phase B. Say so and route them:
+
+  > This workspace was set up by someone else and already has targets registered — you're joining it, not creating it. `/aiforging:join` wires it to your machine: it locates each target repo, writes your own gitignored `settings.local.json`, and checks your plugin prerequisites. It won't re-onboard anything, because the conventions and skills came with your clone.
+
+  Running Phase B here would re-copy conventions into targets that already have them and re-run the analyzer over someone else's work — wasteful at best, and it would produce a diff on shared files that the joiner did not intend.
+
+- All three required markers present (and not the join case above) → **Phase B (onboard-project)**. (Presence or absence of `settings.local.json` distinguishes Scenario A from B/C but doesn't change the phase.)
 - Three markers present but `settings.local.json` missing AND `settings.json` contains `additionalDirectories` → **Phase B with migration preamble** (see Migration note above).
 - None or only some required markers present → **Phase A (init-workspace)**. Step 0.5 will determine the scenario before init proceeds.
 - Mixed state (some markers missing, some present, and not the migration case) → STOP. Tell the user the workspace is in an inconsistent state, show which markers are missing, and ask whether to re-initialize or abort. Do not silently repair.
@@ -150,6 +156,15 @@ test -f ./.claude/settings.local.json && echo "HAS_SETTINGS_LOCAL" || echo "NO_S
 ## PHASE A — init-workspace
 
 Only run these steps if the phase detection in Step 1 routed to Phase A.
+
+### Step A.0 — A note on marketplace identifiers
+
+The two plugins come from **different marketplaces**, and the identifiers written into `enabledPlugins` must match where each was actually installed:
+
+- **`superpowers@claude-plugins-official`** — superpowers is on Anthropic's official marketplace. (If the user installed it from `obra/superpowers` instead, theirs is `superpowers@superpowers-dev`.)
+- **`aiforging@aiforging`** — AI Forging is **not** on the official marketplace. It is installed from its own marketplace, added with `claude plugin marketplace add aiforging/aiforging`. There is no `aiforging@claude-plugins-official`, and writing that identifier produces an `enabledPlugins` entry that silently matches nothing.
+
+`claude plugin list` shows each installed plugin's real identifier. **Read it rather than assuming** — a wrong identifier here fails quietly: the block looks right, and the plugin simply never activates.
 
 ### Step A.1 — Check for the superpowers dependency plugin
 
@@ -256,6 +271,16 @@ mkdir -p ./.claude/skills/capture-pattern
 cp ${CLAUDE_PLUGIN_ROOT}/skills/capture-pattern/SKILL.md \
    ./.claude/skills/capture-pattern/SKILL.md
 
+# resume-feature — how anyone picks up a feature they did not start. Not optional:
+# on a shared workspace this is the whole point of committing the feature folders.
+mkdir -p ./.claude/skills/resume-feature
+cp ${CLAUDE_PLUGIN_ROOT}/skills/resume-feature/SKILL.md \
+   ./.claude/skills/resume-feature/SKILL.md
+
+# Seed the (empty) feature index. resume-feature regenerates it from the feature
+# folders and git on every run, so this is only a starting shape.
+cp ${CLAUDE_PLUGIN_ROOT}/templates/features-INDEX.md ./docs/features/INDEX.md
+
 # Seed the SHARED TIER of the pattern library at the workspace level.
 # These are the framework's starting patterns — they have applies-to frontmatter
 # for stack filtering. hammer-refactor reads this directory and filters by target
@@ -289,7 +314,7 @@ if command -v uv >/dev/null 2>&1; then FORGE_PY="uv run"; else FORGE_PY="python3
 $FORGE_PY ${CLAUDE_PLUGIN_ROOT}/scripts/configure-plugins.py enable \
   --settings-file ./.claude/settings.json \
   --plugin superpowers@claude-plugins-official \
-  --plugin aiforging@claude-plugins-official
+  --plugin aiforging@aiforging
 ```
 
 **Ask before you do this** if the user has a different marketplace source for either plugin (e.g., they installed superpowers via `obra/superpowers` and the source identifier is `superpowers-dev`). The defaults assume the official Anthropic marketplace (`claude-plugins-official`), but the user's actual installed marketplace may differ. Ask:
@@ -433,7 +458,7 @@ If multiple sub-projects were confirmed, onboard them sequentially. After all ta
 
 ### Step A.4 — Git integration (onboard-declined path)
 
-This step runs only if the user declined onboarding in Step A.3. Its purpose is to offer git-init for a workspace that has no target repos yet. Without target repos, we cannot infer a remote destination from `.git/config` — so the remote suggestion is generic. The physical-location sanity check and initial commit still apply.
+This step runs only if the user declined onboarding in Step A.3. Its purpose is to git-init a workspace that has no target repos yet, so it is shareable from the start. Without target repos, we cannot infer a remote destination from `.git/config` — so the remote suggestion is generic. The physical-location sanity check and initial commit still apply.
 
 **Skip this step entirely** if any of the following are true:
 
@@ -456,15 +481,18 @@ Files created:
   ./CLAUDE.md                                      ← workspace context for Claude
   ./README.md                                      ← human-readable workspace overview
   ./docs/features/README.md                        ← feature-folder convention
+  ./docs/features/INDEX.md                         ← generated feature index
   ./.claude/settings.json                          ← committed: enabledPlugins only
   ./.claude/settings.local.json                    ← gitignored: additionalDirectories (empty)
   ./.claude/skills/capture-pattern/SKILL.md        ← Tempering feedback loop
+  ./.claude/skills/resume-feature/SKILL.md         ← pick up a feature anyone started
   ./.claude/skills/browser-testing/SKILL.md        ← optional: walk testing.md in a browser
   ./.claude/skills/review-loop/SKILL.md            ← optional: rounds of review, triage, fix
   ./.aiforging/README.md                           ← pattern file format + two-tier model
   ./.aiforging/patterns/                           ← shared-tier seeded patterns (+ tier README)
   ./.aiforging/anti-patterns/                      ← shared-tier seeded anti-patterns (+ tier README)
   ./.aiforging/VERSION                             ← plugin version these copies came from
+  ./.aiforging/targets.json                        ← COMMITTED: which repos this workspace forges
   ./.gitignore                                     ← rules appended, never overwritten
 
 Dependencies:
@@ -495,6 +523,7 @@ Workspace files:
   ./CLAUDE.md                                      ← workspace context for Claude
   ./README.md                                      ← human-readable workspace overview
   ./docs/features/README.md                        ← feature-folder convention
+  ./docs/features/INDEX.md                         ← generated feature index
   ./.claude/settings.json                          ← committed: enabledPlugins only
   ./.claude/skills/capture-pattern/SKILL.md        ← Tempering feedback loop
   ./.claude/skills/hammer-refactor/SKILL.md        ← executable Hammer stage
@@ -504,6 +533,7 @@ Workspace files:
   ./.aiforging/patterns/                           ← shared-tier seeded patterns (+ tier README)
   ./.aiforging/anti-patterns/                      ← shared-tier seeded anti-patterns (+ tier README)
   ./.aiforging/VERSION                             ← plugin version these copies came from
+  ./.aiforging/targets.json                        ← COMMITTED: which repos this workspace forges
   ./.gitignore                                     ← rules appended, never overwritten
 
 Onboarded targets:
@@ -644,7 +674,7 @@ if command -v uv >/dev/null 2>&1; then FORGE_PY="uv run"; else FORGE_PY="python3
 $FORGE_PY ${CLAUDE_PLUGIN_ROOT}/scripts/configure-plugins.py enable \
   --settings-file <target>/.claude/settings.json \
   --plugin superpowers@claude-plugins-official \
-  --plugin aiforging@claude-plugins-official
+  --plugin aiforging@aiforging
 ```
 
 **Ask before running** if the user's plugin marketplace sources differ from the defaults. Same prompt as in Phase A Step A.2:
@@ -725,6 +755,27 @@ cp ${CLAUDE_PLUGIN_ROOT}/skills/capture-pattern/SKILL.md \
 **Overwrite safety.** If either skill's `SKILL.md` already exists in the target (from a previous onboarding or a manual copy), diff the current plugin version against the target copy and ask before overwriting. Show the diff. Never overwrite silently — the user may have customized the local copy. If they did customize, offer to back up their version to `SKILL.md.bak-<ts>` before copying the fresh version on top.
 
 **Why capture-pattern lives in both the workspace and each target repo.** Phase A Step A.2 already installed `capture-pattern` into the forge workspace's `.claude/skills/` so it auto-activates in cross-repo forge sessions (where it resolves the target to write to by reading `settings.local.json`). Installing it a second time in each target repo gives teammates who clone *just the target repo* the same feedback loop when they're working on the target directly in that repo (e.g., doing a code review outside the forge workspace). The two copies are identical — the per-target copy is there for discoverability, not for a different behavior.
+
+### Step B.5.5 — Record the target in the shared registry
+
+Append this target to `<workspace>/.aiforging/targets.json` — **committed, shared with the team.** Create the file if it does not exist (shape: `${CLAUDE_PLUGIN_ROOT}/templates/targets.json`).
+
+```json
+{
+  "name": "<target name>",
+  "remote": "<git remote -v origin fetch URL, or null if the repo has no remote>",
+  "role": "<backend | frontend | fullstack | meta>",
+  "stack": ["<detected stack identifiers>"],
+  "path": null,
+  "onboarded": "<YYYY-MM-DD>"
+}
+```
+
+**`path` stays `null` for Scenario A (multi-repo).** Absolute paths are per-machine and belong only in each engineer's gitignored `settings.local.json`. For Scenario B/C, set `path` to the target's path *relative to the workspace root* (e.g. `"fe"`, or `"."` for the root target) — those are the same on every machine and safe to share.
+
+**Why this file exists.** Before it, the only record of which repos a workspace forged lived in `settings.local.json` — which is gitignored, correctly. A teammate who cloned a shared workspace therefore had no way to discover its targets at all. The registry is what makes `/aiforging:join` possible, and what makes a committed workspace genuinely shareable rather than shareable-in-principle.
+
+If the target is already in the registry (re-onboarding, or a repeat run), update its entry rather than appending a duplicate. Match on `name`.
 
 ### Step B.6 — Create the target-local pattern directories
 
@@ -980,19 +1031,12 @@ Then STOP.
 
 ## Git integration subroutine
 
-Called from **Step A.4** (workspace standalone, no target context) and **Step B.10** (workspace with at least one target in `settings.local.json`). Both call sites reuse this same logic; only the `target_context` input differs.
+> **A forge workspace is meant to be committed and shared with the team.** That is the default this subroutine assumes, and the reason it exists at all.
+>
+> The workspace holds the specs, plans, QA checklists and review records for every feature the team forges. Kept on one engineer's laptop, all of that is invisible the moment they take a week off — and the framework's central claim, that knowledge lives in durable files instead of a chat transcript, quietly stops being true. Committed and pushed, any engineer can run `/aiforging:join` to wire it to their machine and `/aiforging:resume` to pick up work someone else started.
+>
+> So: **git-init and an initial commit are the expected path, not an offer to be talked into.** Ask about the remote, explain what sharing buys, and treat "not yet" as a deferral rather than a decision. A solo engineer can absolutely keep a workspace local and it works fine — say so once, as a variation, and move on.
 
-**Inputs:**
-
-- `workspace_path` — absolute path to the forge workspace cwd.
-- `target_context` — list of absolute paths to target repos registered in `settings.local.json`. Empty list in Step A.4, non-empty in Step B.10.
-
-**Outputs (record for the caller's summary):**
-
-- `git_state` — one of: `"initialized"`, `"initialized-nested"`, `"deferred"`, `"declined"`, `"already-a-repo"`, `"already-a-repo-committed"`, `"already-a-repo-declined"`.
-- `initial_commit_hash` — short SHA if a commit was made; empty otherwise.
-- `suggested_remote_url` — remote URL we suggested (for the caller to echo in Step A.5 or Step B.11); empty if inference found nothing.
-- `physical_location_note` — short note about whether the workspace location is sensible vs. the target repos' common ancestor; empty if no targets.
 
 ### Subroutine step 1 — Is this already a git repo?
 
@@ -1129,7 +1173,18 @@ Return all recorded outputs to the caller.
 ### Subroutine hard rules
 
 - **Never `git push`.** Pushing requires credentials and a real remote. The subroutine creates an initial commit locally and prints the commands. Push is the user's job.
-- **Never `git remote add` automatically.** We only suggest the URL; the user runs `git remote add` themselves after creating the remote repo.
+- **Never `git remote add` automatically.** We only suggest the URL; the user runs `git remote add` themselves after creating the remote repo. Do ask about it, though, and default to yes — a workspace with no remote is a workspace nobody else can join, which is the failure this whole model is trying to avoid:
+
+  > **Push this somewhere your team can reach it.** Once it has a remote, a teammate clones it and runs `/aiforging:join` — they get every spec, plan and QA checklist, and can `/aiforging:resume` any feature. Without a remote it works fine, it just works fine for exactly one person.
+  >
+  > Create the repo on your host, then:
+  >
+  > ```
+  > git remote add origin <suggested-url>
+  > git push -u origin main
+  > ```
+  >
+  > Keeping it local for now is fine too — you can add a remote any time.
 - **Never move the workspace directory.** The physical-location advisory is a text note, nothing more.
 - **Never commit `.claude/settings.local.json`.** The `.gitignore` written in Step A.2 protects it, but double-check `git status --short` before committing — if `settings.local.json` appears in the staged list, stop immediately, show the user, and fix the `.gitignore` before proceeding.
 - **Never configure `user.email` or `user.name` without consent.** Warn if they're missing and let the user decide.

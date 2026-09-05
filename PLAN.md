@@ -86,6 +86,20 @@ These were agreed during the initial design conversation. Don't relitigate witho
 
     This fixes a structural bug, not a stylistic one. Previously each command had its own hardcoded list of skills and convention directories. Adding an artifact meant editing three files, and **forgetting one meant the artifact installed on fresh setups but never propagated to existing users — silently, with nothing to notice.** Every improvement shipped since a user's onboarding was at risk of stranding them. Manifest entries carry `since`, so `update-targets` can distinguish an *update* from an *addition* and present additions as explained offers rather than silent installs. **Rule for future work: if it gets copied, it goes in the manifest first.**
 
+28. **The forge workspace is a shared git repository, not a personal directory.** This was always the intent — feature specs, plans, QA checklists and review records live in files precisely so they outlive a chat transcript — but the framing said "personal" and one piece of the machinery made sharing impossible in practice.
+
+    **The hole:** the list of target repos a workspace forges lived *only* in `.claude/settings.local.json`, which is gitignored. Correctly gitignored — it holds absolute paths that are meaningless on another machine. But it meant a workspace could be committed, pushed and cloned, and the person who cloned it had **no way to discover what it forged.** Shareable in principle, not in practice, and nobody had noticed because nobody had joined a workspace they did not create.
+
+    Fixed with `.aiforging/targets.json` — committed, holding name / git remote / role / stack and deliberately **no absolute paths** — plus `/aiforging:join`, the flow for the second engineer onward. Setup now detects a joiner (registry present, no `settings.local.json`) and routes them away from Phase B, which would otherwise re-onboard targets that already have their conventions.
+
+29. **`/aiforging:resume` is the second entry point to the workflow, and on a shared workspace it is the more common one.** Two situations it exists for: an engineer goes on vacation mid-feature, and a feature needs extending months after it was built.
+
+    The second is the stronger argument and the one the framework had never made. Asking an AI to understand an existing feature by pointing it at folders and describing current behavior requires it to reconstruct *intent* from *implementation* — tedious, error-prone, and the blind spots are large and quiet. A feature folder hands it the business intent and the engineering intent as written at the time. **That asymmetry is the clearest single justification for the whole feature-folder convention**, and it should be said out loud far more often than it has been.
+
+    Read-only, deliberately: it orients and stops. On a shared workspace the plan in front of you is frequently someone else's, and its decisions have reasons that may not be written down anywhere. A plan quietly rewritten during a handoff destroys the record of what was agreed without replacing it.
+
+    **Status is derived from the plan's own checkboxes**, never stored. A hand-maintained status field is wrong within a month, and a stale status is worse than none — it makes someone skip a feature that actually needed them. Same reasoning as deriving anything else: no second source to disagree with the first.
+
 ## Target Plugin Layout
 
 ```
@@ -801,3 +815,37 @@ Two markers exist in the wild because the workspace template's phrasing changed 
 3. Run `browser-testing` against a real feature with a real `testing.md`.
 4. Run `review-loop` for two rounds, with and without a `code-review` capability present.
 5. Then reconsider Decision 20.
+
+### Session 9 — 2026-09-04 (v0.4.0 — the workspace is a team artifact)
+
+Prompted by an outside question about how the model holds up across distributed teams. Answering it surfaced that the teamwork story — arguably the framework's strongest — had never been told, and that one piece of the machinery quietly contradicted it.
+
+**Decisions 28 and 29 added.** What shipped:
+
+1. **`.aiforging/targets.json` + `/aiforging:join`.** The structural fix (Decision 28). Also a fallback for workspaces predating the registry: infer targets from committed plans and `.aiforging/` directories, confirm with the user, offer to write the registry so the next joiner doesn't have to guess.
+
+2. **`resume-feature` skill + `/aiforging:resume` + `docs/features/INDEX.md`.** Decision 29. The index is generated, self-healing, and derived entirely from feature folders plus git — no new state.
+
+3. **Setup is shared-by-default.** git-init and initial commit are the expected path, the remote conversation is explicit, and a joiner is routed to `/aiforging:join` rather than Phase B.
+
+4. **`aiforging@claude-plugins-official` does not exist** — and setup was writing it into `enabledPlugins` in three places, plus both workspace templates. An `enabledPlugins` entry with a wrong identifier fails in the worst possible way: the block looks right and silently matches nothing. Found while auditing the install section for the README rewrite. **Reading the install instructions as a stranger would is a different exercise from checking them for internal consistency**, and it found in ten minutes something two audits had walked past.
+
+5. **README 405 → 248 lines.** Reorganized around install → day-to-day → upgrade → remove, team model near the top. Cut the "who this is for" section, the full file tree, and most internal mechanics; upgrade went from ~100 lines to ~30 with starting-over in a collapsed block. The principle applied: **a README should explain how to use the thing, not how it works.** Mechanics belong in the conventions, which are installed where they're needed.
+
+6. **Workflow diagram** now shows two entry points — `/forge` or `/resume` — converging into the same flow, with a footer noting the workspace is shared.
+
+**Positioning work parked, deliberately.** The website still sells the method and says nothing about teams, and the two strongest public arguments — the vacation handoff and the three-months-later intent problem — have never been made publicly. Source notes and angles are in the author's private OneDrive under `positioning/`, not in this repo.
+
+**Not done:**
+
+- None of it is dogfooded. `/aiforging:join` has never been run — and it is the one command whose whole purpose is a situation the author cannot easily test alone, since it requires a second machine that has never seen the workspace.
+- `resume-feature` has never been run against a real feature folder.
+- `browser-testing` and `review-loop` still unrun, now three releases old.
+
+**Next session opening moves:**
+
+1. **Have a teammate run `/aiforging:join`** against a shared workspace on a machine that has never seen it. This is the highest-value untested path in the plugin, and it cannot be tested solo — the failure mode is precisely the assumptions the author's own machine happens to satisfy.
+2. Run `/aiforging:resume` on a real feature with history and see whether the report is what someone picking up cold actually needs.
+3. Then `browser-testing` on a real feature with a `testing.md`.
+4. Website and post positioning, from the private notes.
+5. Reconsider Decision 20.

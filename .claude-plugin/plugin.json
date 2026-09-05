@@ -1,7 +1,7 @@
 {
   "name": "aiforging",
-  "version": "0.3.2",
-  "description": "AI Forging — a structured AI-assisted development framework for producing robust, maintainable codebases. Test-first with one scoped test suite per feature, pattern-driven refactoring, domain-driven architecture, and two optional post-implementation verification stages (browser testing against a human QA checklist, and a review/triage/fix loop). Installed as a set of conventions, skills, and a prescriptive setup flow.",
+  "version": "0.4.0",
+  "description": "AI Forging — a structured framework for teams building software with AI. A shared forge workspace, committed to git, lets a team run test-first development with one scoped suite per feature, pattern-driven refactoring, and domain-driven architecture — and lets any engineer resume a feature another one started. Plus optional post-build verification: browser testing against a human QA checklist, and a review/triage/fix loop.",
   "author": {
     "name": "Chris Holland",
     "email": "cholland@mycertainpath.com",
@@ -20,6 +20,8 @@
     "ai-assisted-development",
     "code-review",
     "qa",
-    "browser-testing"
+    "browser-testing",
+    "team-collaboration",
+    "handoff"
   ]
 }

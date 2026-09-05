@@ -1,0 +1,30 @@
+{
+  "$comment": [
+    "AI Forging target registry — COMMITTED, shared with the team.",
+    "",
+    "This is the answer to 'which repos does this workspace forge?' for anyone who clones it.",
+    "It deliberately holds NO absolute paths: those differ per machine and live in each",
+    "engineer's own gitignored .claude/settings.local.json. What is shared is the identity of",
+    "each target — its name, where to clone it from, its role, and its detected stack.",
+    "",
+    "Written by /aiforging:setup Phase B each time a target is onboarded.",
+    "Read by /aiforging:join when a teammate wires an already-shared workspace to their machine.",
+    "",
+    "Scenario A (multi-repo) is where this matters most. In a monorepo or single-repo workspace",
+    "the targets are subdirectories of the workspace itself, so `path` is a relative path and no",
+    "clone step is needed."
+  ],
+  "schema": 1,
+  "scenario": "multi-repo",
+  "targets": [
+    {
+      "name": "backend",
+      "remote": "git@github.com:acme/acme-api.git",
+      "role": "backend",
+      "stack": ["symfony-php", "doctrine"],
+      "path": null,
+      "onboarded": "2026-04-13",
+      "$note": "path is null for multi-repo targets — each engineer records their own absolute path in settings.local.json. For monorepo/single-repo it is a path relative to the workspace root, e.g. \"fe\"."
+    }
+  ]
+}
